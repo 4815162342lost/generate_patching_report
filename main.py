@@ -2,15 +2,18 @@
 import sys
 from distutils.sysconfig import get_python_lib
 sys.path.append(get_python_lib())
+import os
 import json
 import xlsxwriter
 import subprocess
 import datetime
 import calendar
 
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
 #get_file_name
 month=datetime.datetime.now().month+1
-xlsx_name=str(calendar.month_abbr[month])+"full_patches.xlsx"
+xlsx_name=str(calendar.month_abbr[month])+"_full_patches.xlsx"
 
 #counter for chart
 need_patching = not_need_patching = error_count = 0
