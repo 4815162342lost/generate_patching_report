@@ -1,0 +1,5 @@
+cent_os 
+252
+debian
+000
+oracle
