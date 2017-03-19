@@ -9,3 +9,9 @@ The result writes to xslx format:
 ![alt text](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/Screenshot%20from%202017-03-19%2023-53-26.png)
 
 See [**Apr_full_patches.xlsx**](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/Apr_full_patches.xlsx)  for more examples.
+
+
+Instructions:
+- change the current directory to script placement dir
+- edit server_list.txt file
+- run program via sudo ./main.py
