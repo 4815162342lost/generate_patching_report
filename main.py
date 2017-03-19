@@ -63,6 +63,7 @@ def create_xlsx_legend():
     total_sheet.write(4, 5, "There are problem with the server:", format_purple)
 
 def add_chart(need_patching, not_need_patching, error_count):
+    """Add chart"""
     chart = xls_file.add_chart({'type': 'pie'})
     total_sheet.write(3, 6, need_patching, format_border)
     total_sheet.write(2, 6, not_need_patching, format_border)
