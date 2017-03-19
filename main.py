@@ -57,10 +57,11 @@ def create_xlsx_legend():
     """Add legend to total sheet"""
     total_sheet.write(1, 5, "Conventions and stats:", format_bold)
     total_sheet.set_column(5, 5, width=30)
-    total_sheet.set_column(6, 6, width=10)
-    total_sheet.write(2, 5, "Patching is not required:", format_green)
-    total_sheet.write(3, 5, "Server needs to patching:", format_red)
-    total_sheet.write(4, 5, "There are problem with the server:", format_purple)
+    total_sheet.set_column(6, 6, width=12)
+    total_sheet.write(2, 5, "Patching is not required", format_green)
+    total_sheet.write(3, 5, "Server needs patching", format_red)
+    total_sheet.write(4, 5, "There are problem with the server", format_purple)
+    total_sheet.write(1, 6, "Server count", format_bold)
 
 def add_chart(need_patching, not_need_patching, error_count):
     """Add chart"""
@@ -136,7 +137,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
 
 with open("server_list.txt", "r") as server_list:
     #get server count for print statistic
-    servers_count=server_list.read().count("\n")
+    servers_count=server_list.read().lower().count("\n")
     server_list.seek(0)
     for idx, current_server in enumerate(server_list):
         current_server=current_server.rstrip()
@@ -169,4 +170,4 @@ with open("server_list.txt", "r") as server_list:
 create_xlsx_legend()
 add_chart(need_patching, not_need_patching, error_count)
 xls_file.close()
-print("All done. Please, use see the file " + xlsx_name + ".")
+print("All done. Please, see the file " + xlsx_name + ".")
