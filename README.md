@@ -1,4 +1,4 @@
-### Get list of all available updates packages on Linux!
+### Get list of all available updates of the packages on Linux!
 
 Python3-program for get all updates from the servers via salt.
 
