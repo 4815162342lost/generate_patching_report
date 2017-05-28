@@ -9,6 +9,7 @@ import xlsxwriter
 import subprocess
 import datetime
 import calendar
+import re
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
@@ -49,6 +50,7 @@ total_sheet.set_column(0, 0, width=20)
 total_sheet.set_column(1, 1, width=45)
 total_sheet.write(1, 0, "Server name", format_bold)
 total_sheet.write(1, 1, "Conclusion", format_bold)
+total_sheet.write(1, 2, "Kernel update", format_bold)
 
 
 def create_xlsx_legend():
@@ -93,8 +95,12 @@ def write_to_excel_file(content, sheet_name, conten_type):
     sheet = xls_file.add_worksheet(sheet_name)
     if conten_type == "patches":
         counter = 0
+        #avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
+        try:
+            content.pop("retcode")
+        except KeyError:
+            pass
         for key, value in sorted(content.items()):
-            print(key, value)
             if len(key) > column0_width:
                 column0_width = len(key)
             if len(str(value)) > column1_width:
@@ -142,12 +148,14 @@ def write_to_excel_file(content, sheet_name, conten_type):
 with open("server_list.txt", "r") as server_list:
     try:
         proc = subprocess.Popen(
-            "salt -L '" + server_list.read().rstrip() + "' pkg.list_upgrades refresh=True --output=json --static",
+            "salt -L '" + server_list.read().rstrip() + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
             shell=True, stdout=subprocess.PIPE, universal_newlines=True)
         proc.wait(timeout=600)
     except subprocess.TimeoutExpired:
         print("There are problem with salt! ")
-    proc_out_json = json.load(proc.stdout)
+    #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
+    proc_out_q=re.sub("Minion .* did not respond. No job will be sent.", "", proc.stdout.read())
+    proc_out_json = json.loads(proc_out_q)
     server_list.seek(0)
     for idx, current_server in enumerate(server_list.readlines()):
         current_server = current_server.rstrip()
