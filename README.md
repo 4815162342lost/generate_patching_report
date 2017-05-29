@@ -1,6 +1,7 @@
 ### Get list of all available updates of the packages on Linux!
-Get security patching list on Linux
 
+Get upgradable packages list on Linux and save list to xlsx file.
+Require salt.
 Python3-program for get all updates from the servers via salt.
 
 Tested on CentOS 7.3, Oracle Linux 7.1, Debian 8.
