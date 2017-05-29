@@ -1,4 +1,5 @@
 ### Get list of all available updates of the packages on Linux!
+Get security patching list on Linux
 
 Python3-program for get all updates from the servers via salt.
 
