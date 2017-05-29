@@ -20,9 +20,9 @@ xlsx_name = str(calendar.month_abbr[month]) + "_full_patches.xlsx"
 # counter for chart
 need_patching = not_need_patching = error_count = 0
 
-print("Starting the collect of all patches on the servers from  server_list.txt file...")
-print(
-    ", // ,,/ ,.// ,/ ,// / /, // ,/, /, // ,/,\n/, // ,/,_|_// ,/ ,, ,/, // ,/ /, //, /,/\n /, /,.-'   '-. ,// ////, // ,/,/, // ///\n, ,/,/         \ // ,,///, // ,/,/, // ,\n,/ , ^^^^^|^^^^^ ,// ///  /,,/,/, ///, //\n / //     |  O    , // ,/, //, ///, // ,/\n,/ ,,     J\/|\_ |+'(` , |) ^ ||\|||\|/` |\n /,/         |   || ,)// |\/-\|| ||| |\] .\n/ /,,       /|    . ,  ///, . /, // ,//, /\n, / ejm     \ \    ). //, ,( ,/,/, // ,/,")
+print("Hello! Nice to meet you!")
+print(", // ,,/ ,.// ,/ ,// / /, // ,/, /, // ,/,\n/, // ,/,_|_// ,/ ,, ,/, // ,/ /, //, /,/\n /, /,.-'   '-. ,// ////, // ,/,/, // ///\n, ,/,/         \ // ,,///, // ,/,/, // ,\n,/ , ^^^^^|^^^^^ ,// ///  /,,/,/, ///, //\n / //     |  O    , // ,/, //, ///, // ,/\n,/ ,,     J\/|\_ |+'(` , |) ^ ||\|||\|/` |\n /,/         |   || ,)// |\/-\|| ||| |\] .\n/ /,,       /|    . ,  ///, . /, // ,//, /\n, / /,/     \ \    ). //, ,( ,/,/, // ,/,")
+print("\nStarting the collect of all patches on the servers from server_list.txt file...")
 
 xls_file = xlsxwriter.Workbook(xlsx_name)
 
@@ -36,6 +36,7 @@ format_purple.set_bg_color("#d195ec")
 format_bold = xls_file.add_format()
 format_bold.set_bold()
 format_border = xls_file.add_format()
+format_kernel = xls_file.add_format()
 
 formats = (format_red, format_green, format_purple, format_bold, format_border)
 
@@ -48,6 +49,7 @@ total_sheet.set_tab_color("yellow")
 total_sheet.write(0, 0, "Summary results:", format_bold)
 total_sheet.set_column(0, 0, width=20)
 total_sheet.set_column(1, 1, width=45)
+total_sheet.set_column(2, 2, width=14)
 total_sheet.write(1, 0, "Server name", format_bold)
 total_sheet.write(1, 1, "Conclusion", format_bold)
 total_sheet.write(1, 2, "Kernel update", format_bold)
@@ -90,6 +92,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
     global need_patching;
     global not_need_patching;
     global error_count
+    kernel_update = "no"; format_kernel = format_green
     column0_width = 0
     column1_width = 0
     sheet = xls_file.add_worksheet(sheet_name)
@@ -105,6 +108,9 @@ def write_to_excel_file(content, sheet_name, conten_type):
                 column0_width = len(key)
             if len(str(value)) > column1_width:
                 column1_width = len(value)
+            if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
+                kernel_update="yes"
+                format_kernel = format_red
             sheet.write(counter + 2, 0, key, format_border)
             sheet.write(counter + 2, 1, value, format_border)
             counter += 1
@@ -117,6 +123,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.set_tab_color("#79eca3")
             sheet.write(0, 0, "All packages are up to date. Upgrade is not required", format_bold)
             total_sheet.write(idx + 2, 1, "All packages are up to date. Upgrade is not required", format_green)
+            total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_green)
         # if only one patch required
         elif counter == 1:
@@ -126,6 +133,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(1, 0, "Package name", format_bold)
             sheet.write(1, 1, "Available version", format_bold)
             total_sheet.write(idx + 2, 1, "Only 1 package need to upgrade", format_red)
+            total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
         # more one patch required
         else:
@@ -134,15 +142,18 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(0, 0, str(counter) + " packages need to upgrade", format_bold)
             sheet.write(1, 0, "Package name", format_bold)
             sheet.write(1, 1, "Available version", format_bold)
+            total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 1, str(counter) + " packages need to upgrade", format_red)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
     if conten_type == "error":
+        kernel_update = "unknown"
         error_count += 1
         sheet.set_tab_color("#cb87fb")
         sheet.set_column(0, 0, 45)
         sheet.write(0, 0, "Fatal error", format_bold)
         total_sheet.write(idx + 2, 1, "Fatal error", format_purple)
         total_sheet.write(idx + 2, 0, str(sheet_name), format_purple)
+        total_sheet.write(idx + 2, 2, kernel_update, format_purple)
 
 
 with open("server_list.txt", "r") as server_list:
@@ -167,4 +178,4 @@ with open("server_list.txt", "r") as server_list:
 create_xlsx_legend()
 add_chart(need_patching, not_need_patching, error_count)
 xls_file.close()
-print("All done. Please, see the file " + xlsx_name + ".")
+print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
