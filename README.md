@@ -20,7 +20,6 @@ Instructions:
 
 Example:
 ```vodka@vodka-PC: cd ~/PycharmProjects/get_list_of_all_updates/
-vodka@vodka-PC:/$ cd ~/PycharmProjects/get_list_of_all_updates/
 vodka@vodka-PC:~/PycharmProjects/get_list_of_all_updates$ sudo ./main.py 
 [sudo] password for vodka: 
 Hello! Nice to meet you!
