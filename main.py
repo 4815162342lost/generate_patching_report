@@ -13,6 +13,9 @@ import re
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
+#​*-firmware-*
+packages_which_require_reboot=("glibc", "hal", "systemd", "udev")
+
 # get_file_name
 month = datetime.datetime.now().month + 1
 xlsx_name = str(calendar.month_abbr[month]) + "_full_patches.xlsx"
@@ -37,6 +40,7 @@ format_bold = xls_file.add_format()
 format_bold.set_bold()
 format_border = xls_file.add_format()
 format_kernel = xls_file.add_format()
+format_reboot = xls_file.add_format()
 
 formats = (format_red, format_green, format_purple, format_bold, format_border)
 
@@ -50,9 +54,11 @@ total_sheet.write(0, 0, "Summary results:", format_bold)
 total_sheet.set_column(0, 0, width=20)
 total_sheet.set_column(1, 1, width=45)
 total_sheet.set_column(2, 2, width=14)
+total_sheet.set_column(3, 3, width=16)
 total_sheet.write(1, 0, "Server name", format_bold)
 total_sheet.write(1, 1, "Conclusion", format_bold)
 total_sheet.write(1, 2, "Kernel update", format_bold)
+total_sheet.write(1, 3, "Reboot required", format_bold)
 
 
 def create_xlsx_legend():
@@ -92,7 +98,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
     global need_patching;
     global not_need_patching;
     global error_count
-    kernel_update = "no"; format_kernel = format_green
+    kernel_update = "no"; format_kernel = format_green; reboot_require = "no"; format_reboot = format_green;
     column0_width = 0
     column1_width = 0
     sheet = xls_file.add_worksheet(sheet_name)
@@ -108,12 +114,27 @@ def write_to_excel_file(content, sheet_name, conten_type):
                 column0_width = len(key)
             if len(str(value)) > column1_width:
                 column1_width = len(value)
-            if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
-                kernel_update="yes"
-                format_kernel = format_red
+            if kernel_update == "no":
+                if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
+                    kernel_update="yes"
+                    format_kernel = format_red
+                    reboot_require = "yes"
+                    format_reboot = format_red
             sheet.write(counter + 2, 0, key, format_border)
             sheet.write(counter + 2, 1, value, format_border)
             counter += 1
+        if kernel_update == "no":
+            for current_package in packages_which_require_reboot:
+                if current_package in content.keys():
+                    reboot_require = "yes"
+                    format_reboot = format_red
+                    break
+            if reboot_require == "no":
+                for current_package in content.keys():
+                    if current_package.find("-firmware-") != -1:
+                        reboot_require = "yes"
+                        format_reboot = format_red
+                        break
         sheet.set_column(0, 0, width=column0_width + 2)
         sheet.set_column(0, 1, width=column1_width + 2)
         # if patching is not required
@@ -124,6 +145,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(0, 0, "All packages are up to date. Upgrade is not required", format_bold)
             total_sheet.write(idx + 2, 1, "All packages are up to date. Upgrade is not required", format_green)
             total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
+            total_sheet.write(idx + 2, 3, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_green)
         # if only one patch required
         elif counter == 1:
@@ -134,6 +156,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(1, 1, "Available version", format_bold)
             total_sheet.write(idx + 2, 1, "Only 1 package need to upgrade", format_red)
             total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
+            total_sheet.write(idx + 2, 3, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
         # more one patch required
         else:
@@ -143,6 +166,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(1, 0, "Package name", format_bold)
             sheet.write(1, 1, "Available version", format_bold)
             total_sheet.write(idx + 2, 2, kernel_update, format_kernel)
+            total_sheet.write(idx + 2, 3, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 1, str(counter) + " packages need to upgrade", format_red)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
     if conten_type == "error":
@@ -159,7 +183,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
 with open("server_list.txt", "r") as server_list:
     try:
         proc = subprocess.Popen(
-            "salt -L '" + server_list.read().rstrip() + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
+            "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
             shell=True, stdout=subprocess.PIPE, universal_newlines=True)
         proc.wait(timeout=600)
     except subprocess.TimeoutExpired:
