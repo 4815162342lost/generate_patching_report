@@ -13,7 +13,7 @@ import re
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-#​*-firmware-*
+#.*-firmware-*
 packages_which_require_reboot=("glibc", "hal", "systemd", "udev")
 
 # get_file_name
@@ -182,14 +182,21 @@ def write_to_excel_file(content, sheet_name, conten_type):
 
 with open("server_list.txt", "r") as server_list:
     try:
+#        proc = subprocess.Popen(
+#            "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
+#            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,universal_newlines=True)
         proc = subprocess.Popen(
             "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
-            shell=True, stdout=subprocess.PIPE, universal_newlines=True)
-        proc.wait(timeout=600)
+            shell=True,universal_newlines=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout,  stderr = proc.communicate(timeout=120)
+#        proc.wait(timeout=60)
     except subprocess.TimeoutExpired:
-        print("There are problem with salt! ")
+        proc.kill()
+        stdout,  stderr = proc.communicate()
+        print("I am here")
+       # print("There are problem with salt! ")
     #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
-    proc_out_q=re.sub("Minion .* did not respond. No job will be sent.", "", proc.stdout.read())
+    proc_out_q=re.sub("Minion .* did not respond. No job will be sent.", "", stdout)
     proc_out_json = json.loads(proc_out_q)
     server_list.seek(0)
     for idx, current_server in enumerate(server_list.readlines()):
