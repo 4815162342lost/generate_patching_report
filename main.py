@@ -15,7 +15,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 #.*-firmware-*
 packages_which_require_reboot=("glibc", "hal", "systemd", "udev")
-bad_packages=('vi', 'nano')
+bad_packages=('nano', 'vi')
 # get_file_name
 month = datetime.datetime.now().month + 1
 xlsx_name = str(calendar.month_abbr[month]) + "_full_patches.xlsx"
@@ -74,52 +74,53 @@ total_sheet.write(1, 5, "All potential risky updates excluded", format_bold)
 
 def create_xlsx_legend():
     """Add legend to total sheet"""
-    total_sheet.write(1, 6, "Conventions and stats:", format_bold)
-    total_sheet.set_column(6, 6, width=30)
-    total_sheet.set_column(7, 7, width=12)
-    total_sheet.write(2, 6, "Patching is not required", format_green)
-    total_sheet.write(3, 6, "Server needs patching", format_red)
-    total_sheet.write(4, 6, "There are problem with the server", format_purple)
-    total_sheet.write(5, 6, "Updates installed successfully", format_yellow)
-    total_sheet.write(6, 6, "Updates failed", format_gray)
-    total_sheet.write(7, 6, "Excluded from patching", format_blue)
+    total_sheet.write(1, 7, "Conventions and stats:", format_bold)
+    total_sheet.set_column(7, 7, width=30)
+    total_sheet.set_column(8, 8, width=12)
+    total_sheet.write(2, 7, "Patching is not required", format_green)
+    total_sheet.write(3, 7, "Server needs patching", format_red)
+    total_sheet.write(4, 7, "There are problem with the server", format_purple)
+    total_sheet.write(5, 7, "Updates installed successfully", format_yellow)
+    total_sheet.write(6, 7, "Updates failed", format_gray)
+    total_sheet.write(7, 7, "Excluded from patching", format_blue)
     total_sheet.write(1, 7, "Server count", format_bold)
 
 
 def add_chart(need_patching, not_need_patching, error_count):
     """Add chart"""
     chart_before_patching = xls_file.add_chart({'type': 'pie'})
-    total_sheet.write(3, 7, need_patching, format_border)
-    total_sheet.write(2, 7, not_need_patching, format_border)
-    total_sheet.write(4, 7, error_count, format_border)
-    total_sheet.write(5, 7, "n/a", format_border)
-    total_sheet.write_formula(6, 7, "=SUM(H3:H5)-(H6+H8)", format_border)
-    total_sheet.write(7, 7, "n/a", format_border)
+    total_sheet.write(3, 8, need_patching, format_border)
+    total_sheet.write(2, 8, not_need_patching, format_border)
+    total_sheet.write(4, 8, error_count, format_border)
+    total_sheet.write(5, 8, "n/a", format_border)
+    total_sheet.write_formula(6, 8, "=SUM(I3:I5)-(I6+I8)", format_border)
+    total_sheet.write(7, 8, "n/a", format_border)
 
     chart_before_patching.set_title({"name": "The raw statistic (before patching)"})
     chart_before_patching.add_series({
-        'categories': '=Total!$G$3:$G$5',
-        'values': '=Total!$H$3:$H$5',
+        'categories': '=Total!$H$3:$H$5',
+        'values': '=Total!$I$3:$I$5',
         'points': [
             {'fill': {'color': '#79eca3'}},
             {'fill': {'color': '#FF7373'}},
             {'fill': {'color': '#cb87fb'}},
         ],
     })
-    total_sheet.insert_chart('G10', chart_before_patching)
+    total_sheet.insert_chart('H10', chart_before_patching)
 
     chart_after_patching = xls_file.add_chart({"type" : "pie"})
     chart_after_patching.set_title({"name" : "Patching results"})
     chart_after_patching.add_series({
-        'categories': '=Total!$G$6:$G$8',
-        'values': '=Total!$H$6:$H$8',
+        'categories': '=Total!$H$6:$H$8',
+        'values': '=Total!$I$6:$I$8',
         'points': [
             {'fill': {'color': "#fff620"}},
             {'fill': {'color': "#a3a3a3"}},
             {'fill': {'color': "#87cad8"}},
         ],
     })
-    total_sheet.insert_chart('G28', chart_after_patching)
+    total_sheet.insert_chart('H28', chart_after_patching)
+
 
 def write_to_excel_file(content, sheet_name, conten_type):
     """Function to write content to xlsx-file"""
@@ -148,6 +149,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
                 for current_bad_package in bad_packages:
                     if str(key).startswith(current_bad_package):
                         no_potential_risky_packages="no"; format_potential_risky_packages=format_red;
+                        break
             if kernel_update == "no":
                 if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
                     kernel_update="yes"
@@ -178,6 +180,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.set_tab_color("#79eca3")
             sheet.write(0, 0, "All packages are up to date. Upgrade is not required", format_bold)
             total_sheet.write(idx + 2, 1, "All packages are up to date. Upgrade is not required", format_green)
+            total_sheet.write(idx + 2, 2, "", format_bold)
             total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
@@ -190,6 +193,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(1, 0, "Package name", format_bold)
             sheet.write(1, 1, "Available version", format_bold)
             total_sheet.write(idx + 2, 1, "Only 1 package need to upgrade", format_red)
+            total_sheet.write(idx + 2, 2, "", format_bold)
             total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
@@ -201,6 +205,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(0, 0, str(counter) + " packages need to upgrade", format_bold)
             sheet.write(1, 0, "Package name", format_bold)
             sheet.write(1, 1, "Available version", format_bold)
+            total_sheet.write(idx + 2, 2, "", format_bold)
             total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
             total_sheet.write(idx + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
@@ -214,10 +219,12 @@ def write_to_excel_file(content, sheet_name, conten_type):
         sheet.set_column(0, 0, 45)
         sheet.write(0, 0, "Fatal error", format_bold)
         total_sheet.write(idx + 2, 1, "Fatal error", format_purple)
+        total_sheet.write(idx + 2, 2, "", format_bold)
         total_sheet.write(idx + 2, 0, str(sheet_name), format_purple)
         total_sheet.write(idx + 2, 3, "Unknown", format_purple)
         total_sheet.write(idx + 2, 4, "Unknown", format_purple)
         total_sheet.write(idx + 2, 5, "Unknown", format_purple)
+
 
 with open("server_list.txt", "r") as server_list:
     try:
