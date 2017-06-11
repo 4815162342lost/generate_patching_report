@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+#from, smtp,bad_packages
 import sys
 from distutils.sysconfig import get_python_lib
 
@@ -10,12 +11,21 @@ import subprocess
 import datetime
 import calendar
 import re
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-e", "--email", type=str, required=False, help="Enter your e-mail")
+args = parser.parse_args()
+need_send_via_mail = False
+if args.email != None:
+    mail_address=args.email
+    need_send_via_mail = True
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 #.*-firmware-*
 packages_which_require_reboot=("glibc", "hal", "systemd", "udev")
-bad_packages=('nano', 'vi')
+bad_packages=('vi', 'nano')
 # get_file_name
 month = datetime.datetime.now().month + 1
 xlsx_name = str(calendar.month_abbr[month]) + "_full_patches.xlsx"
@@ -133,6 +143,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
     column0_width = 0
     column1_width = 0
     sheet = xls_file.add_worksheet(sheet_name)
+
     if conten_type == "patches":
         counter = 0
         #avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
@@ -159,6 +170,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.write(counter + 2, 0, key, format_border)
             sheet.write(counter + 2, 1, value, format_border)
             counter += 1
+
         if kernel_update == "no":
             for current_package in packages_which_require_reboot:
                 if current_package in content.keys():
@@ -226,6 +238,32 @@ def write_to_excel_file(content, sheet_name, conten_type):
         total_sheet.write(idx + 2, 5, "Unknown", format_purple)
 
 
+def send_mail(email_adr, filename):
+    import smtplib
+    from email.mime.base import MIMEBase
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email import encoders
+    import io
+
+    attachment_text =  str("Full patching list for " + calendar.month_abbr[month])
+    msg = MIMEMultipart()
+    msg['Subject'] = 'Patching_list'
+    msg['From'] = "me"
+    msg['To'] = email_adr
+    f = io.StringIO(attachment_text)
+    part = MIMEText(f.getvalue())
+    msg.attach(part)
+    part = MIMEBase('application', "octet-stream")
+    part.set_payload(open(filename, "rb").read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment', filename=filename)
+    msg.attach(part)
+    s = smtplib.SMTP("smtp.my_organization.net")
+    s.sendmail(msg['From'], msg['To'], msg.as_string())
+    s.quit()
+
+
 with open("server_list.txt", "r") as server_list:
     try:
         proc = subprocess.Popen(
@@ -236,6 +274,7 @@ with open("server_list.txt", "r") as server_list:
         proc.kill()
         print("There are problem with salt! ")
         os._exit(1)
+
     #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
     proc_out_q=re.sub("Minion .* did not respond. No job will be sent.", "", stdout)
     proc_out_json = json.loads(proc_out_q)
@@ -250,4 +289,8 @@ with open("server_list.txt", "r") as server_list:
 create_xlsx_legend()
 add_chart(need_patching, not_need_patching, error_count)
 xls_file.close()
-print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
+if need_send_via_mail:
+    send_mail(mail_address, xlsx_name)
+    print("All done, the file {file_name} has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=mail_address))
+else:
+    print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
