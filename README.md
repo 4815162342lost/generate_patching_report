@@ -10,7 +10,7 @@ The result writes to xslx format:
 ![alt text](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/screenshots/Screenshot%20from%202017-07-10%2000-00-44.png)
 ![alt text](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/screenshots/Screenshot%20from%202017-07-10%2000-01-02.png)
 
-See [**Aug_full_patches.xlsx**](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/screenshots/Aug_full_patches.xlsx)  for more examples.
+See [**Aug_full_patches.xlsx**](https://github.com/4815162342lost/get_all_updates_list_via_salt/blob/master/screenshots/Aug_full_patches.xlsx?raw=true)  for more examples.
 
 
 Instructions:
