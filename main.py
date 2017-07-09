@@ -184,7 +184,7 @@ def write_to_excel_file(content, sheet_name, conten_type):
                         format_reboot = format_red
                         break
         sheet.set_column(0, 0, width=column0_width + 2)
-        sheet.set_column(0, 1, width=column1_width + 2)
+        sheet.set_column(1, 1, width=column1_width + 2)
         # if patching is not required
         if counter == 0:
             not_need_patching += 1
