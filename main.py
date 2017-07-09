@@ -132,7 +132,7 @@ def add_chart(need_patching, not_need_patching, error_count):
     total_sheet.insert_chart('H28', chart_after_patching)
 
 
-def write_to_excel_file(content, sheet_name, conten_type):
+def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, conten_type):
     """Function to write content to xlsx-file"""
     global idx;
     global need_patching;
@@ -140,22 +140,23 @@ def write_to_excel_file(content, sheet_name, conten_type):
     global error_count
     kernel_update = "no"; format_kernel = format_green; reboot_require = "no"; format_reboot = format_green;
     no_potential_risky_packages="yes"; format_potential_risky_packages = format_green;
-    column0_width = 0
-    column1_width = 0
+    column0_width = column1_width = column2_width = 0
     sheet = xls_file.add_worksheet(sheet_name)
-
     if conten_type == "patches":
         counter = 0
         #avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
         try:
-            content.pop("retcode")
+            content_updates_pkgs.pop("retcode")
+            content_all_pkgs.pop("retcode")
         except KeyError:
             pass
-        for key, value in sorted(content.items()):
+        for key, value in sorted(content_updates_pkgs.items()):
             if len(key) > column0_width:
                 column0_width = len(key)
             if len(str(value)) > column1_width:
-                column1_width = len(value)
+                column2_width = len(value)
+            if len(str(content_all_pkgs[key]))>column2_width:
+                column1_width=len(str(content_all_pkgs[key]))
             if no_potential_risky_packages == "yes":
                 for current_bad_package in bad_packages:
                     if str(key).startswith(current_bad_package):
@@ -168,23 +169,26 @@ def write_to_excel_file(content, sheet_name, conten_type):
                     reboot_require = "yes"
                     format_reboot = format_red
             sheet.write(counter + 2, 0, key, format_border)
-            sheet.write(counter + 2, 1, value, format_border)
+            sheet.write(counter + 2, 1, content_all_pkgs[key], format_border)
+            sheet.write(counter + 2, 2, value, format_border)
+
             counter += 1
 
         if kernel_update == "no":
             for current_package in packages_which_require_reboot:
-                if current_package in content.keys():
+                if current_package in content_updates_pkgs.keys():
                     reboot_require = "yes"
                     format_reboot = format_red
                     break
             if reboot_require == "no":
-                for current_package in content.keys():
+                for current_package in content_updates_pkgs.keys():
                     if current_package.find("-firmware-") != -1:
                         reboot_require = "yes"
                         format_reboot = format_red
                         break
         sheet.set_column(0, 0, width=column0_width + 2)
         sheet.set_column(1, 1, width=column1_width + 2)
+        sheet.set_column(2, 2, width=column2_width + 2)
         # if patching is not required
         if counter == 0:
             not_need_patching += 1
@@ -203,7 +207,8 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.set_tab_color("#FF7373")
             sheet.write(0, 0, "Only 1 package need to upgrade", format_bold)
             sheet.write(1, 0, "Package name", format_bold)
-            sheet.write(1, 1, "Available version", format_bold)
+            sheet.write(1, 1, "Current version", format_bold)
+            sheet.write(1, 2, "Available version", format_bold)
             total_sheet.write(idx + 2, 1, "Only 1 package need to upgrade", format_red)
             total_sheet.write(idx + 2, 2, "", format_bold)
             total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
@@ -216,7 +221,8 @@ def write_to_excel_file(content, sheet_name, conten_type):
             sheet.set_tab_color("#FF7373")
             sheet.write(0, 0, str(counter) + " packages need to upgrade", format_bold)
             sheet.write(1, 0, "Package name", format_bold)
-            sheet.write(1, 1, "Available version", format_bold)
+            sheet.write(1, 1, "Current version", format_bold)
+            sheet.write(1, 2, "Available version", format_bold)
             total_sheet.write(idx + 2, 2, "", format_bold)
             total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
             total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
@@ -266,25 +272,33 @@ def send_mail(email_adr, filename):
 
 with open("server_list.txt", "r") as server_list:
     try:
-        proc = subprocess.Popen(
+        proc_get_updates = subprocess.Popen(
             "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
             shell=True,universal_newlines=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = proc.communicate(timeout=300)
+        stdout_get_updates, stderr_get_updates = proc_get_updates.communicate(timeout=300)
+        server_list.seek(0)
+        proc_get_all_pkgs = subprocess.Popen(
+            "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_pkgs --output=json --static  --hide-timeout",
+            shell=True,universal_newlines=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout_get_all_pkgs, stderr_get_all_pkgs = proc_get_all_pkgs.communicate(timeout=300)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        proc_get_updates.kill()
+        proc_get_all_pkgs.kill()
         print("There are problem with salt! ")
         os._exit(1)
 
     #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
-    proc_out_q=re.sub("Minion .* did not respond. No job will be sent.", "", stdout)
-    proc_out_json = json.loads(proc_out_q)
+    proc_out_get_updates=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
+    proc_out_get_updates_json = json.loads(proc_out_get_updates)
+    proc_out_get_all_pkgs=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
+    proc_out_get_all_pkgs_json = json.loads(proc_out_get_all_pkgs)
     server_list.seek(0)
     for idx, current_server in enumerate(server_list.readlines()):
         current_server = current_server.rstrip()
         try:
-            write_to_excel_file(proc_out_json[current_server], current_server, "patches")
+            write_to_excel_file(proc_out_get_updates_json[current_server], proc_out_get_all_pkgs_json[current_server] ,current_server, "patches")
         except KeyError:
-            write_to_excel_file(None, current_server, "error")
+            write_to_excel_file(None, None, current_server, "error")
 
 create_xlsx_legend()
 add_chart(need_patching, not_need_patching, error_count)
