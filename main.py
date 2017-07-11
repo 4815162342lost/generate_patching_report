@@ -151,11 +151,11 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
         except KeyError:
             pass
         for key, value in sorted(content_updates_pkgs.items()):
-            if len(key) > column0_width:
-                column0_width = len(key)
-            if len(str(value)) > column1_width:
-                column2_width = len(value)
-            if len(str(content_all_pkgs[key]))>column2_width:
+            if lenstr((key)) > column0_width:
+                column0_width = len(str(key))
+            if len(str(value)) > column2_width:
+                column2_width = len(str(value))
+            if len(str(content_all_pkgs[key]))>column1_width:
                 column1_width=len(str(content_all_pkgs[key]))
             if no_potential_risky_packages == "yes":
                 for current_bad_package in bad_packages:
