@@ -288,10 +288,14 @@ with open("server_list.txt", "r") as server_list:
         os._exit(1)
 
     #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
-    proc_out_get_updates=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
-    proc_out_get_updates_json = json.loads(proc_out_get_updates)
-    proc_out_get_all_pkgs=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
-    proc_out_get_all_pkgs_json = json.loads(proc_out_get_all_pkgs)
+    stdout_get_updates=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
+    stdout_get_updates=re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_updates)
+    stdout_get_updates==re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_updates)
+    proc_out_get_updates_json = json.loads(stdout_get_updates)
+    stdout_get_all_pkgs=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
+    stdout_get_all_pkgs=re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_all_pkgs)
+    stdout_get_all_pkgs=re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_all_pkgs)
+    proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
     server_list.seek(0)
     for idx, current_server in enumerate(server_list.readlines()):
         current_server = current_server.rstrip()
