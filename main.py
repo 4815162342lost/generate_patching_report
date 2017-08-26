@@ -8,11 +8,12 @@ import os
 import json
 import xlsxwriter
 import subprocess
-import datetime
-import calendar
 import re
 import argparse
+import sqlite3
+from auto_mm import *
 
+servers_for_patching=[]
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--email", type=str, required=False, help="Enter your e-mail")
 args = parser.parse_args()
@@ -151,11 +152,11 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
         except KeyError:
             pass
         for key, value in sorted(content_updates_pkgs.items()):
-            if lenstr((key)) > column0_width:
-                column0_width = len(str(key))
-            if len(str(value)) > column2_width:
-                column2_width = len(str(value))
-            if len(str(content_all_pkgs[key]))>column1_width:
+            if len(key) > column0_width:
+                column0_width = len(key)
+            if len(str(value)) > column1_width:
+                column2_width = len(value)
+            if len(str(content_all_pkgs[key]))>column2_width:
                 column1_width=len(str(content_all_pkgs[key]))
             if no_potential_risky_packages == "yes":
                 for current_bad_package in bad_packages:
@@ -203,6 +204,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
             total_sheet.write(idx + 2, 0, str(sheet_name), format_green)
         # if only one patch required
         elif counter == 1:
+            servers_for_patching.append(sheet.get_name())
             need_patching += 1
             sheet.set_tab_color("#FF7373")
             sheet.write(0, 0, "Only 1 package need to upgrade", format_bold)
@@ -217,6 +219,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
         # more one patch required
         else:
+            servers_for_patching.append(sheet.get_name())
             need_patching += 1
             sheet.set_tab_color("#FF7373")
             sheet.write(0, 0, str(counter) + " packages need to upgrade", format_bold)
@@ -270,6 +273,7 @@ def send_mail(email_adr, filename):
     s.quit()
 
 
+
 with open("server_list.txt", "r") as server_list:
     try:
         proc_get_updates = subprocess.Popen(
@@ -288,13 +292,13 @@ with open("server_list.txt", "r") as server_list:
         os._exit(1)
 
     #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
-    stdout_get_updates=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
-    stdout_get_updates=re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_updates)
-    stdout_get_updates==re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_updates)
+    stdout_get_updates = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
+    stdout_get_updates = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_updates)
+    stdout_get_updates == re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_updates)
     proc_out_get_updates_json = json.loads(stdout_get_updates)
-    stdout_get_all_pkgs=re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
-    stdout_get_all_pkgs=re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_all_pkgs)
-    stdout_get_all_pkgs=re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_all_pkgs)
+    stdout_get_all_pkgs = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
+    stdout_get_all_pkgs = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_all_pkgs)
+    stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_all_pkgs)
     proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
     server_list.seek(0)
     for idx, current_server in enumerate(server_list.readlines()):
@@ -307,6 +311,22 @@ with open("server_list.txt", "r") as server_list:
 create_xlsx_legend()
 add_chart(need_patching, not_need_patching, error_count)
 xls_file.close()
+
+#start to create csv-file
+today=datetime.datetime.now()
+#today=datetime.datetime(year=2017, month=12, day=15)
+
+#open database
+db_con=sqlite3.connect('patching.db')
+db_cur=db_con.cursor()
+
+
+servers_for_write_to_csv, servers_with_additional_monitors=create_csv_list_with_servers_for_write_and_with_additional_monitors(servers_for_patching, db_cur, today)
+write_to_csv('Sep', servers_for_write_to_csv)
+if servers_with_additional_monitors:
+    write_to_csv('Sep0', servers_with_additional_monitors)
+db_con.close()
+
 if need_send_via_mail:
     send_mail(mail_address, xlsx_name)
     print("All done, the file {file_name} has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=mail_address))
