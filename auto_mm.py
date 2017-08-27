@@ -33,9 +33,9 @@ def write_to_csv(month, cis_mm_plan):
     action='schedule'
     comment='patching'
 #action;start_downtime;end_downtime;comment;responsible_user;host;service
-    with open(str(month) + '_security_patching_mm.csv', 'w') as csv_mm:
+    with open(str(month) + '.csv', 'w') as csv_mm:
         csv_mm_writer=csv.writer(csv_mm, delimiter=';')
-        csv_mm_writer.writerow(['action','start_downtime','end_downtime','comment','responsible_user','host','service',''])
+        csv_mm_writer.writerow(['action','start_downtime','end_downtime','comment','responsible_user','host','service'])
         for current_cis_mm in cis_mm_plan:
             csv_mm_writer.writerow([action, current_cis_mm[1], current_cis_mm[2], comment, responsible_user, current_cis_mm[0], current_cis_mm[3]])
 
@@ -53,7 +53,7 @@ def create_csv_list_with_servers_for_write_and_with_additional_monitors(servers_
         server_name_from_db, patching_start_time, patching_duration, additional_monitors=db_cur.execute('SELECT SERVER_NAME, START_TIME, DURATION_TIME, ADDITIONAL_MONITORS FROM SERVERS\
                                                                WHERE SERVER_NAME=:current_server COLLATE NOCASE',
                                                               {'current_server' : current_server}).fetchone()
-        patching_start_datetime=datetime.datetime(year=patching_start_date.year, month=patching_start_date.month, day=patching_start_date.day, hour=int(patching_start_time[0:2]), minute=int(patching_duration[3:]))
+        patching_start_datetime=datetime.datetime(year=patching_start_date.year, month=patching_start_date.month, day=patching_start_date.day, hour=int(patching_start_time[0:2]), minute=int(patching_start_time[3:]))
         patching_end_datetine=get_patching_end_date_and_time(patching_start_date, patching_start_time, patching_duration)
         servers_for_write_to_csv.append((server_name_from_db, patching_start_datetime.strftime('%d.%m.%Y %H:%M'), patching_end_datetine.strftime('%d.%m.%Y %H:%M'), ''))
         if additional_monitors == 1:
@@ -64,4 +64,3 @@ def create_csv_list_with_servers_for_write_and_with_additional_monitors(servers_
             for current_cis in additional_cis:
                 servers_with_additional_monitors.append((current_cis[0], patching_start_datetime.strftime('%d.%m.%Y %H:%M'), patching_end_datetine.strftime('%d.%m.%Y %H:%M'), current_cis[1]))
     return servers_for_write_to_csv, servers_with_additional_monitors
-
