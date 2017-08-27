@@ -156,8 +156,12 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
                 column0_width = len(key)
             if len(str(value)) > column1_width:
                 column2_width = len(value)
-            if len(str(content_all_pkgs[key]))>column2_width:
-                column1_width=len(str(content_all_pkgs[key]))
+            #if new packages (dependence) will be installed with upgrade
+            try:
+                if len(str(content_all_pkgs[key]))>column2_width:
+                    column1_width=len(str(content_all_pkgs[key]))
+            except KeyError:
+                pass
             if no_potential_risky_packages == "yes":
                 for current_bad_package in bad_packages:
                     if str(key).startswith(current_bad_package):
@@ -170,7 +174,10 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
                     reboot_require = "yes"
                     format_reboot = format_red
             sheet.write(counter + 2, 0, key, format_border)
-            sheet.write(counter + 2, 1, content_all_pkgs[key], format_border)
+            try:
+                sheet.write(counter + 2, 1, content_all_pkgs[key], format_border)
+            except KeyError:
+                sheet.write(counter + 2, 1, "new packages (will be installed as dependency)", format_border)
             sheet.write(counter + 2, 2, value, format_border)
             counter += 1
 
@@ -290,14 +297,14 @@ def get_server_list():
 def working_with_csv():
     '''Function for raise other function with csv-creation from auto_mm.py file'''
     today = datetime.datetime.now()
-    servers_for_write_to_csv, servers_with_additional_monitors = create_csv_list_with_servers_for_write_and_with_additional_monitors(
+    servers_for_write_to_csv, servers_with_additional_monitors, error_list_from_csv = create_csv_list_with_servers_for_write_and_with_additional_monitors(
         servers_for_patching, db_cur, today)
     write_to_csv('Linux_MM_for_servers_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_for_write_to_csv)
     print('Hey, csv-file Linux_MM_for_servers_for_full_patching_of_{month}.csv with maintenance mode plan has been compiled!'.format(month= today.strftime("%b")))
     if servers_with_additional_monitors:
         write_to_csv('Linux_MM_for_additional_monitors_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_with_additional_monitors)
         print("FYI: csv-file Linux_MM_for_additional_monitors_for_full_patching_of_{month}.csv with maintenance mode for additionail monitors created!".format(month= today.strftime("%b")))
-
+    return error_list_from_csv
 
 def main_function(server_list):
     '''main function: call salt, call function for write to excel or csv with maintenance mode, call function with e-mail sending'''
@@ -337,7 +344,9 @@ def main_function(server_list):
     xls_file.close()
 
     if args.csv=='yes':
-        working_with_csv()
+        error_list_from_csv=working_with_csv()
+        if error_list_from_csv:
+            print("For these servers maintenance mode will be incorrect:", ','.join(error_list_from_csv))
     if db_con:
         db_cur.close()
     if args.email != None:
