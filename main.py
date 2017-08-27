@@ -14,13 +14,13 @@ import sqlite3
 from auto_mm import *
 
 servers_for_patching=[]
+
+#create parser for working with script input options
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--email", type=str, required=False, help="Enter your e-mail")
+parser.add_argument("-s", "--source", type=str, required=False, default='file', help="read servers from server_list.txt file or database ('file' ot 'db', default -- from file)")
+parser.add_argument("-c", "--csv", type=str, required=False, default='no', help="create csv-file with maintenance mode schedule or not ('yes' or 'no'), default -- 'no'")
 args = parser.parse_args()
-need_send_via_mail = False
-if args.email != None:
-    mail_address=args.email
-    need_send_via_mail = True
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
@@ -36,10 +36,11 @@ need_patching = not_need_patching = error_count = 0
 
 print("Hello! Nice to meet you!")
 print(", // ,,/ ,.// ,/ ,// / /, // ,/, /, // ,/,\n/, // ,/,_|_// ,/ ,, ,/, // ,/ /, //, /,/\n /, /,.-'   '-. ,// ////, // ,/,/, // ///\n, ,/,/         \ // ,,///, // ,/,/, // ,\n,/ , ^^^^^|^^^^^ ,// ///  /,,/,/, ///, //\n / //     |  O    , // ,/, //, ///, // ,/\n,/ ,,     J\/|\_ |+'(` , |) ^ ||\|||\|/` |\n /,/         |   || ,)// |\/-\|| ||| |\] .\n/ /,,       /|    . ,  ///, . /, // ,//, /\n, / /,/     \ \    ). //, ,( ,/,/, // ,/,")
-print("\nStarting the collect of all patches on the servers from server_list.txt file...")
+print("\nStarting to collect of all patches...")
 
 xls_file = xlsxwriter.Workbook(xlsx_name)
 
+#create different formats for excel-file
 format_red = xls_file.add_format()
 format_red.set_bg_color("#ffa7a7")
 format_green = xls_file.add_format()
@@ -133,14 +134,13 @@ def add_chart(need_patching, not_need_patching, error_count):
     total_sheet.insert_chart('H28', chart_after_patching)
 
 
-def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, conten_type):
+def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, conten_type, idx):
     """Function to write content to xlsx-file"""
-    global idx;
-    global need_patching;
-    global not_need_patching;
+    global need_patching
+    global not_need_patching
     global error_count
-    kernel_update = "no"; format_kernel = format_green; reboot_require = "no"; format_reboot = format_green;
-    no_potential_risky_packages="yes"; format_potential_risky_packages = format_green;
+    kernel_update = "no"; format_kernel = format_green; reboot_require = "no"; format_reboot = format_green
+    no_potential_risky_packages="yes"; format_potential_risky_packages = format_green
     column0_width = column1_width = column2_width = 0
     sheet = xls_file.add_worksheet(sheet_name)
     if conten_type == "patches":
@@ -161,7 +161,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
             if no_potential_risky_packages == "yes":
                 for current_bad_package in bad_packages:
                     if str(key).startswith(current_bad_package):
-                        no_potential_risky_packages="no"; format_potential_risky_packages=format_red;
+                        no_potential_risky_packages="no"; format_potential_risky_packages=format_red
                         break
             if kernel_update == "no":
                 if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
@@ -172,7 +172,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
             sheet.write(counter + 2, 0, key, format_border)
             sheet.write(counter + 2, 1, content_all_pkgs[key], format_border)
             sheet.write(counter + 2, 2, value, format_border)
-
             counter += 1
 
         if kernel_update == "no":
@@ -233,8 +232,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
             total_sheet.write(idx + 2, 1, str(counter) + " packages need to upgrade", format_red)
             total_sheet.write(idx + 2, 0, str(sheet_name), format_red)
     if conten_type == "error":
-        kernel_update = "unknown"
-        reboot_require = "unknown"
         error_count += 1
         sheet.set_tab_color("#cb87fb")
         sheet.set_column(0, 0, 45)
@@ -248,6 +245,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, sheet_name, cont
 
 
 def send_mail(email_adr, filename):
+    '''Function for send e-mail'''
     import smtplib
     from email.mime.base import MIMEBase
     from email.mime.multipart import MIMEMultipart
@@ -273,17 +271,42 @@ def send_mail(email_adr, filename):
     s.quit()
 
 
+def get_server_list():
+    '''Function for read servers which shoul be patched from server_list.txt file or patching.db database'''
+    if args.source == 'file':
+        server_list_file = open('server_list.txt', 'r')
+        server_list = server_list_file.read().rstrip().split('\n')
+        server_list_file.close()
+    elif args.source == 'db':
+        server_list_db = db_cur.execute("SELECT SERVER_NAME FROM SERVERS\
+                                          WHERE OS='centos'").fetchall()
+        server_list = list(str(current_server[0]) for current_server in server_list_db)
+    else:
+        print("--source option is incorrect!")
+        exit(1)
+    return server_list
 
-with open("server_list.txt", "r") as server_list:
+
+def working_with_csv():
+    '''Function for raise other function with csv-creation from auto_mm.py file'''
+    today = datetime.datetime.now()
+    servers_for_write_to_csv, servers_with_additional_monitors = create_csv_list_with_servers_for_write_and_with_additional_monitors(
+        servers_for_patching, db_cur, today)
+    write_to_csv('Linux_MM_for_servers_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_for_write_to_csv)
+    print('Hey, csv-file Linux_MM_for_servers_for_full_patching_of_{month}.csv with maintenance mode plan has been compiled!'.format(month= today.strftime("%b")))
+    if servers_with_additional_monitors:
+        write_to_csv('Linux_MM_for_additional_monitors_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_with_additional_monitors)
+        print("FYI: csv-file Linux_MM_for_additional_monitors_for_full_patching_of_{month}.csv with maintenance mode for additionail monitors created!".format(month= today.strftime("%b")))
+
+
+def main_function(server_list):
+    '''main function: call salt, call function for write to excel or csv with maintenance mode, call function with e-mail sending'''
     try:
-        proc_get_updates = subprocess.Popen(
-            "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
-            shell=True,universal_newlines=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc_get_updates = subprocess.Popen("salt -L '" + ','.join(server_list) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
+            shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_get_updates, stderr_get_updates = proc_get_updates.communicate(timeout=300)
-        server_list.seek(0)
-        proc_get_all_pkgs = subprocess.Popen(
-            "salt -L '" + ','.join(server_list.read().rstrip().split('\n')) + "' pkg.list_pkgs --output=json --static  --hide-timeout",
-            shell=True,universal_newlines=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc_get_all_pkgs = subprocess.Popen("salt -L '" + ','.join(server_list) + "' pkg.list_pkgs --output=json --static  --hide-timeout",
+            shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_get_all_pkgs, stderr_get_all_pkgs = proc_get_all_pkgs.communicate(timeout=300)
     except subprocess.TimeoutExpired:
         proc_get_updates.kill()
@@ -291,7 +314,7 @@ with open("server_list.txt", "r") as server_list:
         print("There are problem with salt! ")
         os._exit(1)
 
-    #avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
+    # avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
     stdout_get_updates = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
     stdout_get_updates = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_updates)
     stdout_get_updates == re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_updates)
@@ -300,35 +323,33 @@ with open("server_list.txt", "r") as server_list:
     stdout_get_all_pkgs = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "", stdout_get_all_pkgs)
     stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "", stdout_get_all_pkgs)
     proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
-    server_list.seek(0)
-    for idx, current_server in enumerate(server_list.readlines()):
-        current_server = current_server.rstrip()
+
+    print('Starting to create xlsx-file...')
+    for idx, current_server in enumerate(server_list):
         try:
-            write_to_excel_file(proc_out_get_updates_json[current_server], proc_out_get_all_pkgs_json[current_server] ,current_server, "patches")
+            write_to_excel_file(proc_out_get_updates_json[current_server], proc_out_get_all_pkgs_json[current_server], current_server, "patches", idx)
         except KeyError:
-            write_to_excel_file(None, None, current_server, "error")
+            write_to_excel_file(None, None, current_server, "error", idx)
 
-create_xlsx_legend()
-add_chart(need_patching, not_need_patching, error_count)
-xls_file.close()
+    #end common operations with excel-file
+    create_xlsx_legend()
+    add_chart(need_patching, not_need_patching, error_count)
+    xls_file.close()
 
-#start to create csv-file
-today=datetime.datetime.now()
-#today=datetime.datetime(year=2017, month=12, day=15)
+    if args.csv=='yes':
+        working_with_csv()
+    if db_con:
+        db_cur.close()
+    if args.email != None:
+        send_mail(args.email, xlsx_name)
+        print("All done, the file {file_name} has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=args.email))
+    else:
+        print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
 
-#open database
-db_con=sqlite3.connect('patching.db')
-db_cur=db_con.cursor()
+if args.source=='db' or args.csv=='yes':
+    # open database or not
+    db_con = sqlite3.connect('./patching.db')
+    db_cur = db_con.cursor()
 
-
-servers_for_write_to_csv, servers_with_additional_monitors=create_csv_list_with_servers_for_write_and_with_additional_monitors(servers_for_patching, db_cur, today)
-write_to_csv('Sep', servers_for_write_to_csv)
-if servers_with_additional_monitors:
-    write_to_csv('Sep0', servers_with_additional_monitors)
-db_con.close()
-
-if need_send_via_mail:
-    send_mail(mail_address, xlsx_name)
-    print("All done, the file {file_name} has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=mail_address))
-else:
-    print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
+#get server list and raise main function
+main_function(get_server_list())
