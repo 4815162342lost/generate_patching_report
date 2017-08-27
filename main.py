@@ -346,7 +346,7 @@ def main_function(server_list):
     if args.csv=='yes':
         error_list_from_csv=working_with_csv()
         if error_list_from_csv:
-            print("For these servers maintenance mode will be incorrect:", ','.join(error_list_from_csv))
+            print("Maintenance mode will be incorrect:\n", ',\n'.join(error_list_from_csv), sep='')
     if db_con:
         db_cur.close()
     if args.email != None:
