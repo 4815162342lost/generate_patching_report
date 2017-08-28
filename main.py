@@ -11,6 +11,8 @@ import subprocess
 import re
 import argparse
 import sqlite3
+import termcolor
+
 from auto_mm import *
 
 servers_for_patching=[]
@@ -28,15 +30,15 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 packages_which_require_reboot=("glibc", "hal", "systemd", "udev")
 bad_packages=('vi', 'nano')
 # get_file_name
-month = datetime.datetime.now().month + 1
-xlsx_name = str(calendar.month_abbr[month]) + "_full_patches.xlsx"
+today = datetime.datetime.now()
+xlsx_name = 'Unix List of updates- ' + str(today.strftime("%B %Y")) + "_full_patching.xlsx"
 
 # counter for chart
 need_patching = not_need_patching = error_count = 0
 
 print("Hello! Nice to meet you!")
-print(", // ,,/ ,.// ,/ ,// / /, // ,/, /, // ,/,\n/, // ,/,_|_// ,/ ,, ,/, // ,/ /, //, /,/\n /, /,.-'   '-. ,// ////, // ,/,/, // ///\n, ,/,/         \ // ,,///, // ,/,/, // ,\n,/ , ^^^^^|^^^^^ ,// ///  /,,/,/, ///, //\n / //     |  O    , // ,/, //, ///, // ,/\n,/ ,,     J\/|\_ |+'(` , |) ^ ||\|||\|/` |\n /,/         |   || ,)// |\/-\|| ||| |\] .\n/ /,,       /|    . ,  ///, . /, // ,//, /\n, / /,/     \ \    ). //, ,( ,/,/, // ,/,")
-print("\nStarting to collect of all patches...")
+termcolor.cprint(", // ,,/ ,.// ,/ ,// / /, // ,/, /, // ,/,\n/, // ,/,_|_// ,/ ,, ,/, // ,/ /, //, /,/\n /, /,.-'   '-. ,// ////, // ,/,/, // ///\n, ,/,/         \ // ,,///, // ,/,/, // ,\n,/ , ^^^^^|^^^^^ ,// ///  /,,/,/, ///, //\n / //     |  O    , // ,/, //, ///, // ,/\n,/ ,,     J\/|\_ |+'(` , |) ^ ||\|||\|/` |\n /,/         |   || ,)// |\/-\|| ||| |\] .\n/ /,,       /|    . ,  ///, . /, // ,//, /\n, / /,/     \ \    ). //, ,( ,/,/, // ,/,", color='blue', on_color='on_grey')
+print("Starting to collect of all patches...")
 
 xls_file = xlsxwriter.Workbook(xlsx_name)
 
@@ -296,14 +298,13 @@ def get_server_list():
 
 def working_with_csv():
     '''Function for raise other function with csv-creation from auto_mm.py file'''
-    today = datetime.datetime.now()
     servers_for_write_to_csv, servers_with_additional_monitors, error_list_from_csv = create_csv_list_with_servers_for_write_and_with_additional_monitors(
         servers_for_patching, db_cur, today)
-    write_to_csv('Linux_MM_for_servers_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_for_write_to_csv)
-    print('Hey, csv-file Linux_MM_for_servers_for_full_patching_of_{month}.csv with maintenance mode plan has been compiled!'.format(month= today.strftime("%b")))
+    write_to_csv('Linux_MM_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_for_write_to_csv)
+    print('Hey, csv-file Linux_MM_full_patching_of_{month}.csv has been compiled!'.format(month= today.strftime("%b")))
     if servers_with_additional_monitors:
-        write_to_csv('Linux_MM_for_additional_monitors_for_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_with_additional_monitors)
-        print("FYI: csv-file Linux_MM_for_additional_monitors_for_full_patching_of_{month}.csv with maintenance mode for additionail monitors created!".format(month= today.strftime("%b")))
+        write_to_csv('Linux_MM_CIS_full_patching_of_{month}'.format(month= today.strftime("%b")), servers_with_additional_monitors)
+        print("FYI: csv-file Linux_MM_CIS_full_patching_of_{month}.csv created!".format(month= today.strftime("%b")))
     return error_list_from_csv
 
 def main_function(server_list):
@@ -332,28 +333,31 @@ def main_function(server_list):
     proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
 
     print('Starting to create xlsx-file...')
+    error_list_from_xlsx=[]
     for idx, current_server in enumerate(server_list):
         try:
             write_to_excel_file(proc_out_get_updates_json[current_server], proc_out_get_all_pkgs_json[current_server], current_server, "patches", idx)
         except KeyError:
+            error_list_from_xlsx.append(current_server)
             write_to_excel_file(None, None, current_server, "error", idx)
-
+    if error_list_from_xlsx:
+        termcolor.cprint("There are problem with following servers:\n" + ',\n'.join(error_list_from_xlsx), color='red', on_color='on_white')
     #end common operations with excel-file
     create_xlsx_legend()
     add_chart(need_patching, not_need_patching, error_count)
     xls_file.close()
 
-    if args.csv=='yes':
+    if args.csv=='yes' and servers_for_patching:
         error_list_from_csv=working_with_csv()
         if error_list_from_csv:
-            print("Maintenance mode will be incorrect:\n", ',\n'.join(error_list_from_csv), sep='')
+            termcolor.cprint("Maintenance mode will be incorrect:\n" +  ',\n'.join(error_list_from_csv), color='magenta', on_color='on_white')
     if db_con:
         db_cur.close()
     if args.email != None:
         send_mail(args.email, xlsx_name)
-        print("All done, the file {file_name} has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=args.email))
+        print("All done, the file \"{file_name}\" has been sent to e-mail {mail_address}".format(file_name=xlsx_name, mail_address=args.email))
     else:
-        print("All done. Please, see the file " + xlsx_name + ". Have a nice day!")
+        print("All done. Please, see the file \"" + xlsx_name + "\". Have a nice day!")
 
 if args.source=='db' or args.csv=='yes':
     # open database or not
