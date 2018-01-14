@@ -1,0 +1,3 @@
+[submodule "auto_mm.py"]
+	path = auto_mm.py
+	url = https://github.com/4815162342lost/automatic_maintenance_mode_in_Nagios_during_patching
