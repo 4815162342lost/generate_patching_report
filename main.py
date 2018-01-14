@@ -402,7 +402,7 @@ def main_function(server_list):
 
 if args.source == 'db' or args.csv == 'yes':
     # open database or not
-    db_con = sqlite3.connect('./patching.db')
+    db_con = sqlite3.connect('./auto_mm.py/patching.db')
     db_cur = db_con.cursor()
 
 # get server list and raise main function
