@@ -300,11 +300,15 @@ def send_mail(email_adr, filename):
     encoders.encode_base64(part)
     part.add_header('Content-Disposition', 'attachment', filename=filename)
     msg.attach(part)
-    s = smtplib.SMTP(smtp_server)
-    s.sendmail(msg['From'], msg['To'], msg.as_string())
-    s.quit()
+    try:
+        s = smtplib.SMTP(smtp_server)
+        s.sendmail(msg['From'], msg['To'], msg.as_string())
+        s.quit()
+    except Exception as e:
+        termcolor.cprint('Error occured during sendig e-mail. Exception: ', color='red', on_color='on_white')
+        print(e)
 
-
+        
 def get_server_list():
     '''Function for read servers which shoul be patched from server_list.txt file or patching.db database'''
     if args.source == 'file':
