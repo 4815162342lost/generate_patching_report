@@ -7,7 +7,8 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 import datetime
 import re
 
-
+sys.path.append('./modules/')
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 from auto_mm import *
 from create_excel_template import *
 from send_email import *
@@ -157,5 +158,3 @@ create_xlsx_legend(total_sheet, format)
 db_cur=sqlite(args.csv)
 
 main_function()
-
-
