@@ -10,6 +10,9 @@ import paramiko
 import termcolor
 import xlsxwriter
 
+sys.path.append(get_python_lib())
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append('./modules/')
 from auto_mm import *
 from create_excel_template import *
 from send_email import *
@@ -21,8 +24,6 @@ servers_with_error = []
 
 args=parcer()
 
-sys.path.append(get_python_lib())
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 # get_file_name
 today = datetime.datetime.now()
