@@ -9,12 +9,14 @@ import xlsxwriter
 import subprocess
 import re
 import termcolor
+
+sys.path.append('./modules/')
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
 from auto_mm import *
 from create_excel_template import *
 from send_email import *
 from main import *
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-from auto_mm import *
 
 settings=get_settings()
 args=parcer()
