@@ -1,0 +1,5 @@
+bad_packages='nano','vi'
+smtp_server='smtp.myorganization.com'
+email_from = "me@myorganization.com"
+ssh_key='/home/vodka/.ssh/id_rsa'
+key_type='RSA'
