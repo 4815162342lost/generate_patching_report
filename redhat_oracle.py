@@ -5,13 +5,14 @@ import socket
 import sqlite3
 import sys
 from distutils.sysconfig import get_python_lib
-
 import paramiko
 import termcolor
 import xlsxwriter
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
+#append path to custom modules and import them
 sys.path.append('./modules/')
 from auto_mm import *
 from create_excel_template import *
@@ -19,15 +20,19 @@ from send_email import *
 from main import *
 
 
+#create empty lists
 servers_for_patching = []
 servers_with_error = []
 
+#get arguments from command line (--csv --email)
 args=parcer()
 
 
 # get_file_name
 today = datetime.datetime.now()
-xlsx_name = 'Linix_List_of_updates-' + str(today.strftime("%B_%Y")) + "_Red_Hat_and_Oracle.xlsx"
+xlsx_name = 'Linix_List_of_updates_' + str(today.strftime("%B_%Y")) + "_Red_Hat_and_Oracle.xlsx"
+
+#get settings (smtp-server, e-mails, bad-packages) from settings.txt file
 settings=get_settings()
 
 error_list = {'yum: not found': "It is Debian or different great distr without yum!",
@@ -44,8 +49,13 @@ need_patching = not_need_patching = error_count = 0
 
 
 def write_to_file(contenr, type, sheet, idx_glob, counter):
+    '''function for write all dinamyc content to xlsx-file, contenr -- list with patches, type -- patches or error,
+    sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches '''
     global need_patching
     global not_need_patching
+    sheet.write(0, 1, 'type')
+    sheet.write(0, 2, 'available version')
+    sheet.write(0, 3, 'current version')
     kernel_update = "no"
     format_kernel = format['format_green']
     reboot_require = "no"
@@ -67,7 +77,8 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
                     if no_potential_risky_packages == "yes":
                         for current_bad in settings['bad_packages']:
                             if str(current_content).startswith(current_bad):
-                                if str(current_content).startswith("mysql-libs"):
+                                if str(current_content).startswith("mysql-libs") or str(current_content).startswith(
+                                        "mariadb-libs"):
                                     continue
                                 no_potential_risky_packages = "no"
                                 format_potential_risky_packages = format['format_red']
@@ -96,8 +107,7 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
         sheet.set_column(2, 2, width=column2_width)
         sheet.set_column(3, 3, width=column3_width)
 
-    elif type == 'header':
-        if contenr == 0:
+        if counter == 0:
             not_need_patching += 1
             sheet.set_tab_color("#79eca3")
             sheet.write(0, 0, "security patches are not required")
@@ -117,7 +127,6 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
             sheet.write(0, 0, str(contenr) + " security patches are available")
             total_sheet.write(idx_glob + 2, 1, str(counter) + " security pathes are available", format['format_red'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
-
     elif type == 'error':
         servers_with_error.append(sheet.get_name())
         total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
@@ -125,7 +134,6 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
         total_sheet.write(idx_glob + 2, 3, "unknown", format['format_purple'])
         total_sheet.write(idx_glob + 2, 4, "unknown", format['format_purple'])
         total_sheet.write(idx_glob + 2, 5, "unknown", format['format_purple'])
-
 
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
@@ -206,7 +214,6 @@ def main():
         for idx, current_patch in enumerate(patches_list):
             if not current_patch:
                 break
-            current_version = None
             current_patch_split = re.split(" +", current_patch)
             if len(current_patch_split) != 3:
                 print(termcolor.colored("Warning: ", color="yellow",
@@ -270,7 +277,6 @@ def main():
                         except IndexError:
                             pass
         write_to_file(patches, "patch", sheet, idx_glob, counter)
-        write_to_file(counter, "header", sheet, idx_glob, counter)
 
     if args.csv == 'yes' and servers_for_patching:
         db_con = sqlite3.connect('./patching.db')
@@ -281,13 +287,13 @@ def main():
                              on_color='on_white')
         db_cur.close()
     add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format)
+    xls_file.close()
     if args.email != None:
         if send_mail(args.email, settings['email_from'], settings['smtp_server'],  xlsx_name, today, 'Patching list for RedHat\Oracle '):
             print("All done, the file \"{file_name}\" has been sent to e-mail {mail_address}".format(file_name=xlsx_name,
                                                                                                  mail_address=args.email))
     else:
         print("All done. Please, see the file \"" + xlsx_name + "\". Have a nice day!")
-    xls_file.close()
 
 
 termcolor.cprint(
