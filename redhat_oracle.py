@@ -8,6 +8,7 @@ from distutils.sysconfig import get_python_lib
 import paramiko
 import termcolor
 import xlsxwriter
+import datetime
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -22,7 +23,6 @@ from main import *
 
 #create empty lists
 servers_for_patching = []
-servers_with_error = []
 
 #get arguments from command line (--csv --email)
 args=parcer()
@@ -51,22 +51,23 @@ need_patching = not_need_patching = error_count = 0
 def write_to_file(contenr, type, sheet, idx_glob, counter):
     '''function for write all dinamyc content to xlsx-file, contenr -- list with patches, type -- patches or error,
     sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches '''
-    global need_patching
-    global not_need_patching
-    sheet.write(0, 1, 'type')
-    sheet.write(0, 2, 'available version')
-    sheet.write(0, 3, 'current version')
-    kernel_update = "no"
-    format_kernel = format['format_green']
-    reboot_require = "no"
-    format_reboot = format['format_green']
-    no_potential_risky_packages = "yes"
-    format_potential_risky_packages = format['format_green']
     if type == 'patch':
+        global need_patching
+        global not_need_patching
+        sheet.write(1, 0, 'Reference')
+        sheet.write(1, 1, 'Type')
+        sheet.write(1, 2, 'Available version')
+        sheet.write(1, 3, 'Current version')
+        kernel_update = "no"
+        format_kernel = format['format_green']
+        reboot_require = "no"
+        format_reboot = format['format_green']
+        no_potential_risky_packages = "yes"
+        format_potential_risky_packages = format['format_green']
         column0_width = column1_width = column2_width = column3_width = 10
         for row, curren_patch in enumerate(contenr):
             for col, current_content in enumerate(curren_patch[0][0:]):
-                sheet.write(row + 1, col, current_content)
+                sheet.write(row + 2, col, current_content)
                 if col == 0 and len(current_content) > column0_width:
                     column0_width = len(current_content)
                 elif col == 1 and len(current_content) > column1_width:
@@ -96,7 +97,7 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
                                 reboot_require = 'yes'
                                 format_reboot = format['format_red']
                                 break
-            sheet.write(row + 1, 3, curren_patch[1])
+            sheet.write(row + 2, 3, curren_patch[1])
             if len(curren_patch[1]) > column3_width:
                 column3_width = len(curren_patch[1])
         total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
@@ -106,29 +107,30 @@ def write_to_file(contenr, type, sheet, idx_glob, counter):
         sheet.set_column(1, 1, width=column1_width)
         sheet.set_column(2, 2, width=column2_width)
         sheet.set_column(3, 3, width=column3_width)
-
         if counter == 0:
             not_need_patching += 1
             sheet.set_tab_color("#79eca3")
-            sheet.write(0, 0, "security patches are not required")
+            sheet.write(0, 0, "security patches are not required", format['format_bold'])
             total_sheet.write(idx_glob + 2, 1, "All security packages are up to date", format['format_green'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_green'])
         elif counter == 1:
             servers_for_patching.append(sheet.get_name())
             need_patching += 1
             sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(contenr) + " security patch is available")
+            sheet.write(0, 0, str(counter) + " security patch is available", format['format_bold'])
             total_sheet.write(idx_glob + 2, 1, "Only 1 security patch is available", format['format_red'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
         elif counter > 1:
             servers_for_patching.append(sheet.get_name())
             need_patching += 1
             sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(contenr) + " security patches are available")
+            sheet.write(0, 0, str(counter) + " security patches are available", format['format_bold'])
             total_sheet.write(idx_glob + 2, 1, str(counter) + " security pathes are available", format['format_red'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
     elif type == 'error':
-        servers_with_error.append(sheet.get_name())
+        sheet.write(0, 0, str(contenr), format['format_bold'])
+        sheet.set_column(0,0, width=len(contenr))
+        sheet.set_tab_color('purple')
         total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
         total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_purple'])
         total_sheet.write(idx_glob + 2, 3, "unknown", format['format_purple'])
@@ -145,8 +147,6 @@ def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
             print("Critical error with server", termcolor.colored(sheet.get_name() + '.', color='red'),
                   error_list[error])
             error_count += 1
-            sheet.write(0, 0, error_list[error])
-            sheet.set_tab_color("purple")
             write_to_file(error_list[error], "error", sheet, idx_glob, 0)
             ssh_connection.close()
             return True
@@ -191,15 +191,11 @@ def main():
         except (socket.error, paramiko.SSHException):
             print("Connection troubles with server " + termcolor.colored(server,
                                                                          "red") + ". Can not clear the yum cache.")
-            sheet.write(0, 0, "Connection troubles")
-            sheet.set_tab_color("purple")
             write_to_file('connection troubles', "error", sheet, idx_glob, 0)
             error_count += 1
             continue
         except (paramiko.ssh_exception.AuthenticationException, paramiko.BadHostKeyException):
             print("Troubles with aouthorization on the server  " + termcolor.colored(server, "red") + ".")
-            sheet.write(0, 0, "Troubles with authorization")
-            sheet.set_tab_color("purple")
             write_to_file('Troubles with authorization', "error", sheet, idx_glob, 0)
             error_count += 1
             continue
