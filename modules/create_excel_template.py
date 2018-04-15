@@ -88,3 +88,35 @@ def add_chart(need_patching, not_need_patching, error_count, xls_file, total_she
         ],
     })
     total_sheet.insert_chart('H28', chart_after_patching)
+
+def write_to_total_sheet(updates_count, patching_type, sheet, total_sheet, servers_for_patching, server_count, format, idx_glob):
+    need_patching, not_need_patching = server_count
+    if updates_count == 0:
+        not_need_patching += 1
+        sheet.set_tab_color("#79eca3")
+        sheet.write(0, 0, "security patches are not required", format['format_bold'])
+        total_sheet.write(idx_glob + 2, 1, "All security packages are up to date", format['format_green'])
+        total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_green'])
+    elif updates_count == 1:
+        servers_for_patching.append(sheet.get_name())
+        need_patching += 1
+        sheet.set_tab_color("#FF7373")
+        sheet.write(0, 0, str(updates_count) + " security patch is available", format['format_bold'])
+        sheet.write(1, 0, 'Package name', format['format_bold'])
+        sheet.write(1, 1, 'Current version', format['format_bold'])
+        sheet.write(1, 2, 'Available version', format['format_bold'])
+        total_sheet.write(idx_glob + 2, 1, "Only 1 security patch is available", format['format_red'])
+        total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
+    else:
+        servers_for_patching.append(sheet.get_name())
+        need_patching += 1
+        sheet.set_tab_color("#FF7373")
+        sheet.write(1, 0, 'Package name', format['format_bold'])
+        sheet.write(1, 1, 'Current version', format['format_bold'])
+        sheet.write(1, 2, 'Available version', format['format_bold'])
+        sheet.write(0, 0, str(updates_count) + " security patches are available", format['format_bold'])
+        total_sheet.write(idx_glob + 2, 1, str(updates_count) + " security pathes are available",
+                          format['format_red'])
+        total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
+
+    return need_patching, not_need_patching
