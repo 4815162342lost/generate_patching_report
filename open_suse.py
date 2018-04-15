@@ -27,6 +27,8 @@ servers_with_error = []
 idx_glob=0
 
 def write_to_file(type, sheet, idx_glob, contenr, need_reboot):
+    global need_patching
+    global not_need_patching
     if type == 'patch':
         kernel_update = "no"
         format_kernel = format['format_green']
@@ -56,8 +58,10 @@ def write_to_file(type, sheet, idx_glob, contenr, need_reboot):
         total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
         total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
         sheet.set_column(0, 0, width=column0_width)
+        need_patching, not_need_patching = write_to_total_sheet(len(contenr), "security", sheet, total_sheet, servers_for_patching, (need_patching, not_need_patching), format, idx_glob)
     elif type == 'error':
         global error_count
+        error_count+=1
         servers_with_error.append(sheet.get_name())
         total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
         total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_purple'])
