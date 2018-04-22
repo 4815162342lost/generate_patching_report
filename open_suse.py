@@ -17,60 +17,55 @@ from send_email import *
 from main import *
 
 
+
 settings=get_settings()
 today = datetime.datetime.now()
 args=parcer()
 
-need_patching = not_need_patching = error_count = 0
+need_patching = not_need_patching = 0
 servers_for_patching = []
 servers_with_error = []
 idx_glob=0
 
-def write_to_file(type, sheet, idx_glob, contenr, need_reboot):
+def write_to_file(sheet, idx_glob, contenr, need_reboot):
     global need_patching
     global not_need_patching
-    if type == 'patch':
-        kernel_update = "no"
-        format_kernel = format['format_green']
-        if need_reboot:
-            reboot_require = "yes"
-            format_reboot = format['format_red']
-        else:
-            reboot_require="no"
-            format_reboot=format['format_green']
-        no_potential_risky_packages = "yes"
-        format_potential_risky_packages = format['format_green']
-        column0_width = 10
-        for col, current_patch in enumerate(contenr):
-            if len(current_patch)>column0_width:
-                column0_width=len(current_patch)
-            if no_potential_risky_packages=='yes':
-                for current_bad in settings['bad_packages']:
-                    if current_patch.find(current_bad)!=-1:
-                        no_potential_risky_packages='no'
-                        format_potential_risky_packages=format['format_red']
-                        break
-            if re.search('.*Linux Kernel', current_patch) != -1:
-                kernel_update = 'yes'
-                format_kernel = format['format_red']
-            sheet.write(col + 2, 0, current_patch)
-        total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
-        total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-        total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
-        sheet.set_column(0, 0, width=column0_width)
-        need_patching, not_need_patching = write_to_total_sheet(len(contenr), "security", sheet, total_sheet, servers_for_patching, (need_patching, not_need_patching), format, idx_glob)
-    elif type == 'error':
-        global error_count
-        error_count+=1
-        servers_with_error.append(sheet.get_name())
-        total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
-        total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_purple'])
-        total_sheet.write(idx_glob + 2, 3, "unknown", format['format_purple'])
-        total_sheet.write(idx_glob + 2, 4, "unknown", format['format_purple'])
-        total_sheet.write(idx_glob + 2, 5, "unknown", format['format_purple'])
-
+    kernel_update = "no"
+    format_kernel = format['format_green']
+    if need_reboot:
+        reboot_require = "yes"
+        format_reboot = format['format_red']
+    else:
+        reboot_require="no"
+        format_reboot=format['format_green']
+    no_potential_risky_packages = "yes"
+    format_potential_risky_packages = format['format_green']
+    column0_width = 10
+    for col, current_patch in enumerate(contenr):
+        if len(current_patch)>column0_width:
+            column0_width=len(current_patch)
+        if no_potential_risky_packages=='yes':
+            for current_bad in settings['bad_packages']:
+                if current_patch.find(current_bad)!=-1:
+                    no_potential_risky_packages='no'
+                    format_potential_risky_packages=format['format_red']
+                    break
+        if re.search('.*Linux Kernel', current_patch) != -1:
+            kernel_update = 'yes'
+            format_kernel = format['format_red']
+        sheet.write(col + 2, 0, current_patch)
+    total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
+    total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
+    total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
+    sheet.set_column(0, 0, width=column0_width)
+    if len(contenr)>0:
+        need_patching+=1; servers_for_patching.append(sheet.get_name())
+    else:
+        not_need_patching+=1
+    write_to_total_sheet(len(contenr), "security ", sheet, total_sheet, format, idx_glob)
 
 def main_function():
+    error_count=0
     servers_list=open('./server_list.txt')
     ssh_con=paramiko.SSHClient()
     ssh_con.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -91,11 +86,13 @@ def main_function():
             ssh_con.close()
         except (socket.error, paramiko.SSHException):
             print("Connection troubles with server " + termcolor.colored(current_server, "red") + '.')
-            write_to_file("error", sheet, idx_glob, "Connection error", None)
+            write_to_total_sheet("Connection error", "error", sheet, total_sheet, format, idx_glob)
+            error_count+=1
             continue
         except (paramiko.ssh_exception.AuthenticationException, paramiko.BadHostKeyException):
-            print("Troubles with aouthorization on the server  " + termcolor.colored(current_server, "red") + ".")
-            write_to_file("error", sheet, idx_glob, "Auntification troubles", None)
+            print("Troubles with authorization on the server  " + termcolor.colored(current_server, "red") + ".")
+            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob)
+            error_count += 1
             continue
         security_patches_list=[]
         need_reboot=False
@@ -106,7 +103,7 @@ def main_function():
             if not need_reboot and splitted_line[4].startswith("reboot"):
                 need_reboot=True
             security_patches_list.append(splitted_line[6].rstrip())
-        write_to_file("patch", sheet, idx_glob, security_patches_list, need_reboot)
+        write_to_file(sheet, idx_glob, security_patches_list, need_reboot)
         security_patches_list.clear()
         need_reboot=False
     if args.csv == 'yes' and servers_for_patching:
@@ -126,7 +123,7 @@ def main_function():
 
 
 termcolor.cprint("____________________________________________________________________\n                                                 _,-\"-._        tbk\n                 <_     _>\n     _____----\"----________________________________`---'_______\n    /----------------------------------------------------------\ \n   /] [_] #### [___] #### [___]  \/  [___] #### [___] #### [_] [\ \n  /----------------------------11407-----------------------|-|---\ \n  |=          S  B  B                          C  F  F     |_|  =|\n[=|______________________________________________________________|=]\n   )/_-(-o-)=_=(=8=)=_=(-o-)-_ [____] _-(-o-)=_=(=8=)=_=(-o-)-_\(\n====================================================================\nSBB CFF FFS  Ae 6/6  (1952)  Co'Co'  125 km/h  4300 kW", color='red', on_color='on_white')
-xlsx_name = 'Unix_List_of_updates_' + str(today.strftime("%B %Y")) + "_Open_Suse.xlsx"
+xlsx_name = 'Liniux_list_of_updates_' + str(today.strftime("%B %Y")) + "_Open_Suse.xlsx"
 xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
