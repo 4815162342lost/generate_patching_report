@@ -89,7 +89,7 @@ def add_chart(need_patching, not_need_patching, error_count, xls_file, total_she
     })
     total_sheet.insert_chart('H28', chart_after_patching)
 
-def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx_glob):
+def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx_glob, os):
     '''content -- patching count or error type'''
     if patching_type!="error":
         if content == 0:
@@ -101,15 +101,17 @@ def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx
             sheet.set_tab_color("#FF7373")
             sheet.write(0, 0, str(content) + " {security}patch is available".format(security=patching_type), format['format_bold'])
             sheet.write(1, 0, 'Package name', format['format_bold'])
-            sheet.write(1, 1, 'Current version', format['format_bold'])
-            sheet.write(1, 2, 'Available version', format['format_bold'])
+            if os!='open_suse':
+                sheet.write(1, 1, 'Current version', format['format_bold'])
+                sheet.write(1, 2, 'Available version', format['format_bold'])
             total_sheet.write(idx_glob + 2, 1, "Only 1 {security}patch is available".format(security=patching_type), format['format_red'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
         else:
             sheet.set_tab_color("#FF7373")
             sheet.write(1, 0, 'Package name', format['format_bold'])
-            sheet.write(1, 1, 'Current version', format['format_bold'])
-            sheet.write(1, 2, 'Available version', format['format_bold'])
+            if os!='open_suse':
+                sheet.write(1, 1, 'Current version', format['format_bold'])
+                sheet.write(1, 2, 'Available version', format['format_bold'])
             sheet.write(0, 0, str(content) + " {security}patches are available".format(security=patching_type), format['format_bold'])
             total_sheet.write(idx_glob + 2, 1, str(content) + " {security}patсhes are available".format(security=patching_type),
                               format['format_red'])
