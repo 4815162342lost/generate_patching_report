@@ -41,7 +41,10 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
     no_potential_risky_packages = "yes"
     format_potential_risky_packages = format['format_green']
     column0_width = 10
-    for col, current_patch in enumerate(contenr):
+    col=0
+    for current_patch in contenr:
+        if current_patch == 'Summary':
+            continue
         if len(current_patch)>column0_width:
             column0_width=len(current_patch)
         if no_potential_risky_packages=='yes':
@@ -54,15 +57,16 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
             kernel_update = 'yes'
             format_kernel = format['format_red']
         sheet.write(col + 2, 0, current_patch)
+        col+=1
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
     total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     sheet.set_column(0, 0, width=column0_width)
-    if len(contenr)>0:
+    if col>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
     else:
         not_need_patching+=1
-    write_to_total_sheet(len(contenr), "security ", sheet, total_sheet, format, idx_glob)
+    write_to_total_sheet(col, "security ", sheet, total_sheet, format, idx_glob, 'open_suse')
 
 def main_function():
     error_count=0
@@ -86,12 +90,12 @@ def main_function():
             ssh_con.close()
         except (socket.error, paramiko.SSHException):
             print("Connection troubles with server " + termcolor.colored(current_server, "red") + '.')
-            write_to_total_sheet("Connection error", "error", sheet, total_sheet, format, idx_glob)
+            write_to_total_sheet("Connection error", "error", sheet, total_sheet, format, idx_glob, 'open_suse')
             error_count+=1
             continue
         except (paramiko.ssh_exception.AuthenticationException, paramiko.BadHostKeyException):
             print("Troubles with authorization on the server  " + termcolor.colored(current_server, "red") + ".")
-            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob)
+            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob, 'open_suse')
             error_count += 1
             continue
         security_patches_list=[]
