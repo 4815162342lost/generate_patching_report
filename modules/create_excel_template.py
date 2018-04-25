@@ -122,3 +122,5 @@ def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx
         total_sheet.write(idx_glob + 2, 3, "unknown", format['format_purple'])
         total_sheet.write(idx_glob + 2, 4, "unknown", format['format_purple'])
         total_sheet.write(idx_glob + 2, 5, "unknown", format['format_purple'])
+        sheet.set_tab_color("purple")
+        sheet.write(0,0,content, format["format_bold"])
