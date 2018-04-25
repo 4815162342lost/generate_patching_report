@@ -30,7 +30,7 @@ args=parcer()
 
 # get_file_name
 today = datetime.datetime.now()
-xlsx_name = 'Linix_List_of_updates_' + str(today.strftime("%B_%Y")) + "_Red_Hat_and_Oracle.xlsx"
+xlsx_name = 'Linix_list_of_updates_' + str(today.strftime("%B_%Y")) + "_Red_Hat_and_Oracle.xlsx"
 
 #get settings (smtp-server, e-mails, bad-packages) from settings.txt file
 settings=get_settings()
@@ -48,94 +48,66 @@ error_list = {'yum: not found': "It is Debian or different great distr without y
 need_patching = not_need_patching = error_count = 0
 
 
-def write_to_file(contenr, type, sheet, idx_glob, counter):
+def write_to_file(contenr, sheet, idx_glob, counter):
     '''function for write all dinamyc content to xlsx-file, contenr -- list with patches, type -- patches or error,
     sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches '''
-    if type == 'patch':
-        global need_patching
-        global not_need_patching
-        sheet.write(1, 0, 'Reference')
-        sheet.write(1, 1, 'Type')
-        sheet.write(1, 2, 'Available version')
-        sheet.write(1, 3, 'Current version')
-        kernel_update = "no"
-        format_kernel = format['format_green']
-        reboot_require = "no"
-        format_reboot = format['format_green']
-        no_potential_risky_packages = "yes"
-        format_potential_risky_packages = format['format_green']
-        column0_width = column1_width = column2_width = column3_width = 10
-        for row, curren_patch in enumerate(contenr):
-            for col, current_content in enumerate(curren_patch[0][0:]):
-                sheet.write(row + 2, col, current_content)
-                if col == 0 and len(current_content) > column0_width:
-                    column0_width = len(current_content)
-                elif col == 1 and len(current_content) > column1_width:
-                    column1_width = len(current_content)
-                elif col == 2:
-                    if len(current_content) > column2_width:
-                        column2_width = len(current_content)
-                    if no_potential_risky_packages == "yes":
-                        for current_bad in settings['bad_packages']:
-                            if str(current_content).startswith(current_bad):
-                                if str(current_content).startswith("mysql-libs") or str(current_content).startswith(
-                                        "mariadb-libs"):
-                                    continue
-                                no_potential_risky_packages = "no"
-                                format_potential_risky_packages = format['format_red']
-                                break
-                    if kernel_update == "no":
-                        if current_content.startswith("kernel") or current_content.startswith("linux-image"):
-                            kernel_update = 'yes'
+    global need_patching
+    global not_need_patching
+    global servers_for_patching
+    kernel_update = "no"
+    format_kernel = format['format_green']
+    reboot_require = "no"
+    format_reboot = format['format_green']
+    no_potential_risky_packages = "yes"
+    format_potential_risky_packages = format['format_green']
+    column0_width = column1_width = column2_width = column3_width = 10
+    for row, curren_patch in enumerate(contenr):
+        for col, current_content in enumerate(curren_patch[0][0:]):
+            sheet.write(row + 2, col, current_content)
+            if col == 0 and len(current_content) > column0_width:
+                column0_width = len(current_content)
+            elif col == 1 and len(current_content) > column1_width:
+                column1_width = len(current_content)
+            elif col == 2:
+                if len(current_content) > column2_width:
+                    column2_width = len(current_content)
+                if no_potential_risky_packages == "yes":
+                    for current_bad in settings['bad_packages']:
+                        if str(current_content).startswith(current_bad):
+                            if str(current_content).startswith("mysql-libs") or str(current_content).startswith(
+                                    "mariadb-libs"):
+                                continue
+                            no_potential_risky_packages = "no"
+                            format_potential_risky_packages = format['format_red']
+                            break
+                if kernel_update == "no":
+                    if current_content.startswith("kernel") or current_content.startswith("linux-image"):
+                        kernel_update = 'yes'
+                        reboot_require = 'yes'
+                        format_kernel = format['format_red']
+                        format_reboot = format['format_red']
+                if reboot_require == "no":
+                    for current_package in packages_which_require_reboot:
+                        if str(current_content).startswith(current_package) or current_content.find(
+                                '-firmware-') != -1:
                             reboot_require = 'yes'
-                            format_kernel = format['format_red']
                             format_reboot = format['format_red']
-                    if reboot_require == "no":
-                        for current_package in packages_which_require_reboot:
-                            if str(current_content).startswith(current_package) or current_content.find(
-                                    '-firmware-') != -1:
-                                reboot_require = 'yes'
-                                format_reboot = format['format_red']
-                                break
-            sheet.write(row + 2, 3, curren_patch[1])
-            if len(curren_patch[1]) > column3_width:
-                column3_width = len(curren_patch[1])
-        total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
-        total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-        total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
-        sheet.set_column(0, 0, width=column0_width)
-        sheet.set_column(1, 1, width=column1_width)
-        sheet.set_column(2, 2, width=column2_width)
-        sheet.set_column(3, 3, width=column3_width)
-        if counter == 0:
-            not_need_patching += 1
-            sheet.set_tab_color("#79eca3")
-            sheet.write(0, 0, "security patches are not required", format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, "All security packages are up to date", format['format_green'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_green'])
-        elif counter == 1:
-            servers_for_patching.append(sheet.get_name())
-            need_patching += 1
-            sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(counter) + " security patch is available", format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, "Only 1 security patch is available", format['format_red'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
-        elif counter > 1:
-            servers_for_patching.append(sheet.get_name())
-            need_patching += 1
-            sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(counter) + " security patches are available", format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, str(counter) + " security pathes are available", format['format_red'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
-    elif type == 'error':
-        sheet.write(0, 0, str(contenr), format['format_bold'])
-        sheet.set_column(0,0, width=len(contenr))
-        sheet.set_tab_color('purple')
-        total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
-        total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_purple'])
-        total_sheet.write(idx_glob + 2, 3, "unknown", format['format_purple'])
-        total_sheet.write(idx_glob + 2, 4, "unknown", format['format_purple'])
-        total_sheet.write(idx_glob + 2, 5, "unknown", format['format_purple'])
+                            break
+        sheet.write(row + 2, 3, curren_patch[1])
+        if len(curren_patch[1]) > column3_width:
+            column3_width = len(curren_patch[1])
+    total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
+    total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
+    total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
+    sheet.set_column(0, 0, width=column0_width)
+    sheet.set_column(1, 1, width=column1_width)
+    sheet.set_column(2, 2, width=column2_width)
+    sheet.set_column(3, 3, width=column3_width)
+    if counter>0:
+        need_patching+=1; servers_for_patching.append(sheet.get_name())
+    else:
+        not_need_patching+=1
+    write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
 
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
@@ -147,7 +119,7 @@ def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
             print("Critical error with server", termcolor.colored(sheet.get_name() + '.', color='red'),
                   error_list[error])
             error_count += 1
-            write_to_file(error_list[error], "error", sheet, idx_glob, 0)
+            write_to_total_sheet(error_list[error], "error", sheet, total_sheet, format, idx_glob, 'rhel_oracle')
             ssh_connection.close()
             return True
     return False
@@ -191,12 +163,12 @@ def main():
         except (socket.error, paramiko.SSHException):
             print("Connection troubles with server " + termcolor.colored(server,
                                                                          "red") + ". Can not clear the yum cache.")
-            write_to_file('connection troubles', "error", sheet, idx_glob, 0)
+            write_to_total_sheet("Conection troubles", "error", sheet, total_sheet, format, idx_glob, 'rhel_oracle')
             error_count += 1
             continue
         except (paramiko.ssh_exception.AuthenticationException, paramiko.BadHostKeyException):
             print("Troubles with aouthorization on the server  " + termcolor.colored(server, "red") + ".")
-            write_to_file('Troubles with authorization', "error", sheet, idx_glob, 0)
+            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob, 'open_suse')
             error_count += 1
             continue
         patches_list = proc_tmp.rstrip("\n").split("\n")
@@ -272,7 +244,8 @@ def main():
                                 break
                         except IndexError:
                             pass
-        write_to_file(patches, "patch", sheet, idx_glob, counter)
+        print(patches)
+        write_to_file(patches, sheet, idx_glob, counter)
 
     if args.csv == 'yes' and servers_for_patching:
         db_con = sqlite3.connect('./patching.db')
