@@ -51,6 +51,7 @@ need_patching = not_need_patching = error_count = 0
 def write_to_file(contenr, sheet, idx_glob, counter):
     '''function for write all dinamyc content to xlsx-file, contenr -- list with patches, type -- patches or error,
     sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches '''
+    #['NetworkManager', '1:1.8.0-9.el7.x86_64', '1.4.0-20.el7_3.x86_64']
     global need_patching
     global not_need_patching
     global servers_for_patching
@@ -60,49 +61,43 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     format_reboot = format['format_green']
     no_potential_risky_packages = "yes"
     format_potential_risky_packages = format['format_green']
-    column0_width = column1_width = column2_width = column3_width = 10
+    #search column width
+    column0_width= max(len(current_patch_name[0]) for current_patch_name in contenr)
+    column1_width = max(len(current_patch_name[1]) for current_patch_name in contenr)
+    column2_width = max(len(current_patch_name[2]) for current_patch_name in contenr)
+
     for row, curren_patch in enumerate(contenr):
-        for col, current_content in enumerate(curren_patch[0][0:]):
-            sheet.write(row + 2, col, current_content)
-            if col == 0 and len(current_content) > column0_width:
-                column0_width = len(current_content)
-            elif col == 1 and len(current_content) > column1_width:
-                column1_width = len(current_content)
-            elif col == 2:
-                if len(current_content) > column2_width:
-                    column2_width = len(current_content)
-                if no_potential_risky_packages == "yes":
-                    for current_bad in settings['bad_packages']:
-                        if str(current_content).startswith(current_bad):
-                            if str(current_content).startswith("mysql-libs") or str(current_content).startswith(
-                                    "mariadb-libs"):
-                                continue
-                            no_potential_risky_packages = "no"
-                            format_potential_risky_packages = format['format_red']
-                            break
-                if kernel_update == "no":
-                    if current_content.startswith("kernel") or current_content.startswith("linux-image"):
-                        kernel_update = 'yes'
-                        reboot_require = 'yes'
-                        format_kernel = format['format_red']
-                        format_reboot = format['format_red']
-                if reboot_require == "no":
-                    for current_package in packages_which_require_reboot:
-                        if str(current_content).startswith(current_package) or current_content.find(
-                                '-firmware-') != -1:
-                            reboot_require = 'yes'
-                            format_reboot = format['format_red']
-                            break
-        sheet.write(row + 2, 3, curren_patch[1])
-        if len(curren_patch[1]) > column3_width:
-            column3_width = len(curren_patch[1])
+        sheet.write(row + 2, 0, curren_patch[0])
+        sheet.write(row + 2, 1, curren_patch[2])
+        sheet.write(row + 2, 2, curren_patch[1])
+        if no_potential_risky_packages == "yes":
+            for current_bad in settings['bad_packages']:
+                if str(curren_patch[0]).startswith(current_bad):
+                    if str(curren_patch[0]).startswith("mysql-libs") or str(curren_patch[0]).startswith(
+                            "mariadb-libs"):
+                        continue
+                    no_potential_risky_packages = "no"
+                    format_potential_risky_packages = format['format_red']
+                    break
+        if kernel_update == "no":
+            if curren_patch[0].startswith("kernel") or curren_patch[0].startswith("linux-image"):
+                kernel_update = 'yes'
+                reboot_require = 'yes'
+                format_kernel = format['format_red']
+                format_reboot = format['format_red']
+        if reboot_require == "no":
+            for current_package in packages_which_require_reboot:
+                if str(curren_patch[0]).startswith(current_package) or curren_patch[0].find(
+                        '-firmware-') != -1:
+                    reboot_require = 'yes'
+                    format_reboot = format['format_red']
+                    break
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
     total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     sheet.set_column(0, 0, width=column0_width)
     sheet.set_column(1, 1, width=column1_width)
     sheet.set_column(2, 2, width=column2_width)
-    sheet.set_column(3, 3, width=column3_width)
     if counter>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
     else:
@@ -219,7 +214,10 @@ def main():
                             try:
                                 if current_rpm[:previous_number_position.start()] == previous_patch and \
                                         current_rpm[previous_number_position.start() + 1:][0].isdigit():
-                                    patches.append((previous_patch_for_write, current_rpm))
+                                    #print(previous_patch_for_write)
+                                    #previous_patch_for_write[:re.search("-\d", previous_patch_for_write).start()])
+                                    patches.append([previous_patch_for_write[2][:re.search("-\d", previous_patch_for_write[2]).start()], previous_patch_for_write[2][re.search("-\d", previous_patch_for_write[2]).start()+1:], current_rpm[re.search("-\d", previous_patch_for_write[2]).start()+1:]])
+                                    #patches.append((previous_patch_for_write, current_rpm))
                                     previous_patch_for_write = current_patch_split
                                     previous_patch = current_patch_split[2][:number_position.start()]
                                     previous_number_position = number_position
@@ -238,13 +236,18 @@ def main():
                         try:
                             if current_rpm[:number_position.start()] == current_patch_split[2][
                                                                         :number_position.start()] and \
-                                    current_rpm[number_position.start() + 1:][0].isdigit():
-                                patches.append((current_patch_split, current_rpm))
+                                current_rpm[number_position.start() + 1:][0].isdigit():
+                                patches.append([previous_patch_for_write[2][
+                                                :re.search("-\d", previous_patch_for_write[2]).start()],
+                                                previous_patch_for_write[2][
+                                                re.search("-\d", previous_patch_for_write[2]).start() + 1:],
+                                                current_rpm[
+                                                re.search("-\d", previous_patch_for_write[2]).start() + 1:]])
+                                # patches.append((previous_patch_for_write, current_rpm))
                                 counter += 1
                                 break
                         except IndexError:
                             pass
-        print(patches)
         write_to_file(patches, sheet, idx_glob, counter)
 
     if args.csv == 'yes' and servers_for_patching:
