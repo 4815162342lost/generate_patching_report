@@ -20,21 +20,20 @@ from create_excel_template import *
 from send_email import *
 from main import *
 
-
-#create empty lists
+#create empty lists for servers which will be patched
 servers_for_patching = []
 
 #get arguments from command line (--csv --email)
 args=parcer()
 
-
-# get_file_name
+# set xlsx-file name
 today = datetime.datetime.now()
 xlsx_name = 'Linix_list_of_updates_' + str(today.strftime("%B_%Y")) + "_Red_Hat_and_Oracle.xlsx"
 
-#get settings (smtp-server, e-mails, bad-packages) from settings.txt file
+#get settings (smtp-server, e-mails, bad packages and etc.) from settings.txt file
 settings=get_settings()
 
+#set error list
 error_list = {'yum: not found': "It is Debian or different great distr without yum!",
               'command not found': "It is Debian or different great distr without yum!",
               'RHN support will be disabled': "This system is not registered with RHN",
@@ -44,32 +43,32 @@ error_list = {'yum: not found': "It is Debian or different great distr without y
               'Trying other mirror': 'Please, fix the proxy in /etc/yum.conf',
               'Could not retrieve mirrorlis': 'Please, fix the proxy in /etc/yum.conf'}
 
-# counter for chart
+# counter for chart (add_chart function)
 need_patching = not_need_patching = error_count = 0
 
 
 def write_to_file(contenr, sheet, idx_glob, counter):
-    '''function for write all dinamyc content to xlsx-file, contenr -- list with patches, type -- patches or error,
-    sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches '''
-    #['NetworkManager', '1:1.8.0-9.el7.x86_64', '1.4.0-20.el7_3.x86_64']
+    '''function for write all dynamic content to xlsx-file, contenr -- list with patches (see below),
+    sheet -- xlsx-sheet for write content, idx_glob -- serial number of current server, counter -- number of patches'''
+    #example of the contenr value: ['NetworkManager', '1:1.8.0-9.el7.x86_64', '1.4.0-20.el7_3.x86_64']
     global need_patching
     global not_need_patching
     global servers_for_patching
-    kernel_update = "no"
-    format_kernel = format['format_green']
-    reboot_require = "no"
-    format_reboot = format['format_green']
+    kernel_update = reboot_require = "no"
+    format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
     no_potential_risky_packages = "yes"
-    format_potential_risky_packages = format['format_green']
-    #search column width
-    column0_width= max(len(current_patch_name[0]) for current_patch_name in contenr)
-    column1_width = max(len(current_patch_name[1]) for current_patch_name in contenr)
-    column2_width = max(len(current_patch_name[2]) for current_patch_name in contenr)
-
+    #determine columns width
+    column_width={}
+    for c in range(3):
+        column_width[c]= max(len(current_patch_name[c]) for current_patch_name in contenr)
+    #set columns width
+    for c in range(3):
+        sheet.set_column(c, c, width=column_width[c])
+    #write content to file
     for row, curren_patch in enumerate(contenr):
-        sheet.write(row + 2, 0, curren_patch[0])
-        sheet.write(row + 2, 1, curren_patch[2])
-        sheet.write(row + 2, 2, curren_patch[1])
+        for c in range(3):
+            sheet.write(row +2, c, curren_patch[c])
+        #determine potential risky packages, new kernel is available or not, reboot needed  or not 
         if no_potential_risky_packages == "yes":
             for current_bad in settings['bad_packages']:
                 if str(curren_patch[0]).startswith(current_bad):
@@ -81,10 +80,8 @@ def write_to_file(contenr, sheet, idx_glob, counter):
                     break
         if kernel_update == "no":
             if curren_patch[0].startswith("kernel") or curren_patch[0].startswith("linux-image"):
-                kernel_update = 'yes'
-                reboot_require = 'yes'
-                format_kernel = format['format_red']
-                format_reboot = format['format_red']
+                kernel_update = reboot_require = 'yes'
+                format_kernel = format_reboot = format['format_red']
         if reboot_require == "no":
             for current_package in packages_which_require_reboot:
                 if str(curren_patch[0]).startswith(current_package) or curren_patch[0].find(
@@ -92,12 +89,10 @@ def write_to_file(contenr, sheet, idx_glob, counter):
                     reboot_require = 'yes'
                     format_reboot = format['format_red']
                     break
+    #write results to total sheet
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
     total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
-    sheet.set_column(0, 0, width=column0_width)
-    sheet.set_column(1, 1, width=column1_width)
-    sheet.set_column(2, 2, width=column2_width)
     if counter>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
     else:
@@ -106,6 +101,7 @@ def write_to_file(contenr, sheet, idx_glob, counter):
 
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
+    '''Function for find error from error_list variable, return True if error found'''
     global error_count
     std_error_1 = std_error.read().decode()
     #    std_stdout_1= std_stdout.read().decode()
@@ -119,12 +115,13 @@ def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
             return True
     return False
 
-
-
 def main():
+    '''main function'''
+    #open file and create list of servers
     server_list_file = open('server_list.txt', 'r')
     server_list = server_list_file.read().rstrip().split('\n')
     server_list_file.close()
+    #set ssh connection settings
     private_ssh_key = settings['ssh_key']
     ssh_private_key_type = settings['key_type']
     if ssh_private_key_type == "RSA":
@@ -135,12 +132,18 @@ def main():
     ssh_connection.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     global error_count
     servers_count = len(server_list)
+    #looping servers
     for idx_glob, server in enumerate(server_list):
         print(termcolor.colored(
             server + "({idx_glob}/{servers_count})".format(idx_glob=idx_glob + 1, servers_count=servers_count),
             color='grey', on_color='on_green'))
         patches = []
-        sheet = xls_file.add_worksheet(str(server))
+        #add sheet with server_name
+        try:
+            sheet = xls_file.add_worksheet(str(server))
+        except Exception:
+            print("Error during creation xlsx-sheet for " + termcolor.colored(server, "red") + '. Server exists two or more time in file? ')
+            continue
         try:
             ssh_connection.connect(hostname=server, username='root', port=22, pkey=private_key, timeout=60)
             print("Trying to clean yum cache...")
