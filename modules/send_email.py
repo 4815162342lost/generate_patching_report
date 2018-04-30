@@ -28,3 +28,4 @@ def send_mail(email_adr, email_from, smtp_server, filename, today, description):
         termcolor.cprint('Error occured during sendig e-mail. Exception: ', color='red', on_color='on_white')
         print(e)
         return None
+    return True
