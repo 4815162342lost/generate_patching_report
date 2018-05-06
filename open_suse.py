@@ -109,7 +109,6 @@ def main_function():
             security_patches_list.append(splitted_line[6].rstrip())
         write_to_file(sheet, idx_glob, security_patches_list, need_reboot)
         security_patches_list.clear()
-        need_reboot=False
     if args.csv == 'yes' and servers_for_patching:
         error_list_from_csv = working_with_csv(servers_for_patching, db_cur, today, 'open_suse')
         if error_list_from_csv:
