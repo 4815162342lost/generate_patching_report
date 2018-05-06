@@ -58,9 +58,9 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
     no_potential_risky_packages = "yes"
     #determine columns width
-    column_width={}
+    column_width=[]
     for c in range(3):
-        column_width[c]= max(len(current_patch_name[c]) for current_patch_name in contenr)
+        column_width.append(max(len(current_patch_name[c]) for current_patch_name in contenr))
     #set columns width
     for c in range(3):
         sheet.set_column(c, c, width=column_width[c])
@@ -68,7 +68,7 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     for row, curren_patch in enumerate(contenr):
         for c in range(3):
             sheet.write(row +2, c, curren_patch[c])
-        #determine potential risky packages, new kernel is available or not, reboot needed  or not 
+        #determine potential risky packages, new kernel is available or not, reboot needed  or not
         if no_potential_risky_packages == "yes":
             for current_bad in settings['bad_packages']:
                 if str(curren_patch[0]).startswith(current_bad):
