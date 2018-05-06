@@ -94,12 +94,13 @@ def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx
     if patching_type!="error":
         if content == 0:
             sheet.set_tab_color("#79eca3")
-            sheet.write(0, 0, "{security}patches are not required".format(security=patching_type), format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, "All security packages are up to date", format['format_green'])
+            sheet.set_column(0, 0, width=21)
+            sheet.write(0, 0, "Update is not required", format['format_bold'])
+            total_sheet.write(idx_glob + 2, 1, "All packages are up to date", format['format_green'])
             total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_green'])
         elif content == 1:
             sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(content) + " {security}patch is available".format(security=patching_type), format['format_bold'])
+            sheet.write(0, 0, "Only one {security}patch is available".format(security=patching_type), format['format_bold'])
             sheet.write(1, 0, 'Package name', format['format_bold'])
             if os!='open_suse':
                 sheet.write(1, 1, 'Current version', format['format_bold'])
