@@ -217,10 +217,12 @@ def main():
                             try:
                                 if current_rpm[:previous_number_position.start()] == previous_patch and \
                                         current_rpm[previous_number_position.start() + 1:][0].isdigit():
-                                    #print(previous_patch_for_write)
-                                    #previous_patch_for_write[:re.search("-\d", previous_patch_for_write).start()])
-                                    patches.append([previous_patch_for_write[2][:re.search("-\d", previous_patch_for_write[2]).start()], previous_patch_for_write[2][re.search("-\d", previous_patch_for_write[2]).start()+1:], current_rpm[re.search("-\d", previous_patch_for_write[2]).start()+1:]])
-                                    #patches.append((previous_patch_for_write, current_rpm))
+                                    patches.append([previous_patch_for_write[2][
+                                                    :re.search("-\d", previous_patch_for_write[2]).start()],
+                                                    current_rpm[
+                                                    re.search("-\d", previous_patch_for_write[2]).start() + 1:],
+                                                    previous_patch_for_write[2][
+                                                    re.search("-\d", previous_patch_for_write[2]).start() + 1:]])
                                     previous_patch_for_write = current_patch_split
                                     previous_patch = current_patch_split[2][:number_position.start()]
                                     previous_number_position = number_position
@@ -242,11 +244,10 @@ def main():
                                 current_rpm[number_position.start() + 1:][0].isdigit():
                                 patches.append([previous_patch_for_write[2][
                                                 :re.search("-\d", previous_patch_for_write[2]).start()],
-                                                previous_patch_for_write[2][
-                                                re.search("-\d", previous_patch_for_write[2]).start() + 1:],
                                                 current_rpm[
+                                                re.search("-\d", previous_patch_for_write[2]).start() + 1:],
+                                                previous_patch_for_write[2][
                                                 re.search("-\d", previous_patch_for_write[2]).start() + 1:]])
-                                # patches.append((previous_patch_for_write, current_rpm))
                                 counter += 1
                                 break
                         except IndexError:
