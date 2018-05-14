@@ -150,7 +150,7 @@ def main_function():
 
 
 termcolor.cprint("____________________________________________________________________\n                                                 _,-\"-._        tbk\n                 <_     _>\n     _____----\"----________________________________`---'_______\n    /----------------------------------------------------------\ \n   /] [_] #### [___] #### [___]  \/  [___] #### [___] #### [_] [\ \n  /----------------------------11407-----------------------|-|---\ \n  |=          S  B  B                          C  F  F     |_|  =|\n[=|______________________________________________________________|=]\n   )/_-(-o-)=_=(=8=)=_=(-o-)-_ [____] _-(-o-)=_=(=8=)=_=(-o-)-_\(\n====================================================================\nSBB CFF FFS  Ae 6/6  (1952)  Co'Co'  125 km/h  4300 kW", color='red', on_color='on_white')
-xlsx_name = 'Unix_List_of_updates_' + str(today.strftime("%B %Y")) + "_Debian.xlsx"
+xlsx_name = 'Linux_list_of_updates_' + str(today.strftime("%B %Y")) + "_Debian.xlsx"
 xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
