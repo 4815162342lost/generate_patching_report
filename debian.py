@@ -6,7 +6,7 @@ import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 import datetime
 import re
-
+import sys
 sys.path.append('./modules/')
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 from auto_mm import *
