@@ -6,6 +6,8 @@ import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 import datetime
 import re
+import socket
+
 import sys
 sys.path.append('./modules/')
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -13,7 +15,7 @@ from auto_mm import *
 from create_excel_template import *
 from send_email import *
 from main import *
-
+from auto_snapshots import *
 
 settings=get_settings()
 today = datetime.datetime.now()
@@ -62,35 +64,8 @@ def write_to_file(contenr, type, sheet, idx_glob):
         sheet.set_column(0, 0, width=column0_width)
         sheet.set_column(1, 1, width=column1_width)
         sheet.set_column(2, 2, width=column2_width)
-        global need_patching
-        global not_need_patching
-        if len(contenr.keys()) == 0:
-            not_need_patching += 1
-            sheet.set_tab_color("#79eca3")
-            sheet.write(0, 0, "security patches are not required", format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, "All security packages are up to date", format['format_green'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_green'])
-        elif len(contenr.keys()) == 1:
-            servers_for_patching.append(sheet.get_name())
-            need_patching += 1
-            sheet.set_tab_color("#FF7373")
-            sheet.write(0, 0, str(len(contenr.keys())) + " security patch is available", format['format_bold'])
-            sheet.write(1, 0, 'Package name', format['format_bold'])
-            sheet.write(1, 1, 'Current version', format['format_bold'])
-            sheet.write(1, 2, 'Available version', format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, "Only 1 security patch is available", format['format_red'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
-        elif len(contenr.keys()) > 1:
-            servers_for_patching.append(sheet.get_name())
-            need_patching += 1
-            sheet.set_tab_color("#FF7373")
-            sheet.write(1, 0, 'Package name', format['format_bold'])
-            sheet.write(1, 1, 'Current version', format['format_bold'])
-            sheet.write(1, 2, 'Available version', format['format_bold'])
-            sheet.write(0, 0, str(len(contenr.keys())) + " security patches are available", format['format_bold'])
-            total_sheet.write(idx_glob + 2, 1, str(len(contenr.keys())) + " security pathes are available", format['format_red'])
-            total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_red'])
-    elif type == 'error':
+        write_to_total_sheet(len(contenr.keys()), 'security', sheet, total_sheet)
+    if type == 'error':
         global error_count
         error_count+=1
         servers_with_error.append(sheet.get_name())
@@ -137,8 +112,11 @@ def main_function():
         if error_list_from_csv:
             termcolor.cprint("Maintenance mode will be incorrect:\n" + ',\n'.join(error_list_from_csv), color='magenta',
                              on_color='on_white')
+    if args.snap=='yes' and servers_for_patching:
+        servers_whcih_require_snap_without_additional_activities=snap_determine_needed_servers(db_cur, servers_for_patching)
+        snap_create_csv_file(db_cur, servers_whcih_require_snap_without_additional_activities, "auto-snapshots_debian_{month}.csv".format(month=today.strftime("%B")), today)
+    if args.csv == 'yes' or args.snap=='yes':
         db_cur.close()
-
     add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format)
     xls_file.close()
     if args.email != None:
@@ -155,6 +133,6 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-db_cur=sqlite(args.csv)
+db_cur=sqlite(args.csv, args.snap)
 
 main_function()
