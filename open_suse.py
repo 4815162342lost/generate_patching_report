@@ -15,7 +15,7 @@ from auto_mm import *
 from create_excel_template import *
 from send_email import *
 from main import *
-
+from auto_snapshots import *
 
 
 settings=get_settings()
@@ -114,6 +114,10 @@ def main_function():
         if error_list_from_csv:
             termcolor.cprint("Maintenance mode will be incorrect:\n" + ',\n'.join(error_list_from_csv), color='magenta',
                               on_color='on_white')
+    if args.snap=='yes' and servers_for_patching:
+        servers_whcih_require_snap_without_additional_activities=snap_determine_needed_servers(db_cur, servers_for_patching)
+        snap_create_csv_file(db_cur, servers_whcih_require_snap_without_additional_activities, "auto-snapshots_open_suse_{month}.csv".format(month=today.strftime("%B")), today)
+    if args.csv == 'yes' or args.snap=='yes':
         db_cur.close()
     add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format)
     xls_file.close()
@@ -131,6 +135,6 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-db_cur=sqlite(args.csv)
+db_cur=sqlite(args.csv, args.snap)
 
 main_function()
