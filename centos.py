@@ -13,11 +13,8 @@ import termcolor
 sys.path.append('./modules/')
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-from auto_mm import *
 from create_excel_template import *
-from send_email import *
 from main import *
-from auto_snapshots import *
 
 settings=get_settings()
 args=parcer()
@@ -155,21 +152,7 @@ def main_function():
                          on_color='on_white')
     add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format)
     xls_file.close()
-    if args.csv == 'yes' and servers_for_patching:
-        error_list_from_csv = working_with_csv(servers_for_patching, db_cur, today, 'centos')
-        if error_list_from_csv:
-            termcolor.cprint("Maintenance mode will be incorrect:\n" + ',\n'.join(error_list_from_csv), color='magenta',
-                             on_color='on_white')
-    if args.snap=='yes' and servers_for_patching:
-        servers_whcih_require_snap_without_additional_activities=snap_determine_needed_servers(db_cur, servers_for_patching)
-        snap_create_csv_file(db_cur, servers_whcih_require_snap_without_additional_activities, "auto-snapshots_centos_{month}.csv".format(month=today.strftime("%B")), today)
-    if args.email != None:
-        send_mail(args.email, settings['email_from'], settings['smtp_server'],  xlsx_name, today, 'Patching list for CentOS ')
-        print("All done, the file \"{file_name}\" has been sent to e-mail {mail_address}".format(file_name=xlsx_name,                                                                                 mail_address=args.email))
-    else:
-        print("All done. Please, see the file \"" + xlsx_name + "\". Have a nice day!")
-    if args.csv == 'yes' or args.snap=='yes':
-        db_cur.close()
+    perform_additional_actions(args, today, 'centos', xlsx_name, settings, servers_for_patching)
 
 # get server list and raise main function
 print("Hello! Nice to meet you!")
@@ -182,5 +165,4 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-db_cur=sqlite(args.csv, args.snap)
 main_function()
