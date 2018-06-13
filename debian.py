@@ -25,6 +25,8 @@ servers_with_error = []
 idx_glob=0
 
 def write_to_file(contenr, type, sheet, idx_glob):
+    global need_patching
+    global not_need_patching
     if type == 'patch':
         kernel_update = "no"
         format_kernel = format['format_green']
@@ -61,7 +63,12 @@ def write_to_file(contenr, type, sheet, idx_glob):
         sheet.set_column(0, 0, width=column0_width)
         sheet.set_column(1, 1, width=column1_width)
         sheet.set_column(2, 2, width=column2_width)
-        write_to_total_sheet(len(contenr.keys()), 'security', sheet, total_sheet)
+        write_to_total_sheet(len(contenr.keys()), 'security', sheet, total_sheet, format, idx_glob, 'debian')
+        if len(contenr.keys())>0:
+            servers_for_patching.append(sheet.get_name())
+            need_patching=+1
+        else:
+            not_need_patching+=1
     if type == 'error':
         global error_count
         error_count+=1
@@ -88,11 +95,11 @@ def main_function():
         current_server=current_server.rstrip()
         print('Working with {server} server...'.format(server=current_server))
         ssh_con.connect(hostname=current_server, username='root', pkey=ssh_key, timeout=30, port=22)
-        stdin_check, stdout_check, stderr_check = ssh_con.exec_command(command='apt update',  timeout=600)
+        stdin_check, stdout_check, stderr_check = ssh_con.exec_command(command='apt update',  timeout=1200)
         a=stderr_check.read().decode()
-        stdin_check, stdout_check, stderr_check = ssh_con.exec_command(command="unattended-upgrade --dry-run -d 2>/dev/null | grep 'Checking' | awk '{ print $2 }'", timeout=600)
+        stdin_check, stdout_check, stderr_check = ssh_con.exec_command(command="unattended-upgrade --dry-run -d 2>/dev/null | grep 'Checking' | awk '{ print $2 }'", timeout=1200)
         print('Trying to perform apt list --upgradable command')
-        stdin_all_version, stdout_all_version, stderr_all_version = ssh_con.exec_command(command="apt list --upgradable 2>/dev/null | tail -n +2", timeout=600)
+        stdin_all_version, stdout_all_version, stderr_all_version = ssh_con.exec_command(command="apt list --upgradable 2>/dev/null | tail -n +2", timeout=1200)
         stdout_check_1=stdout_check.read().decode().rstrip('\n').split('\n')
         stdout_all_version_1=stdout_all_version.read().decode().rstrip('\n').split('\n')
         ssh_con.close()
