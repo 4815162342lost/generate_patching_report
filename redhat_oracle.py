@@ -38,7 +38,6 @@ error_list = {'yum: not found': "It is Debian or different great distr without y
               'usage: yum [options] COMMAND': "Updateinfo does not compatible with current yum version",
               'No such command: updateinfo': "Updateinfo does not compatible with current yum version",
               'Cannot retrieve repository metadata': 'Incorrect repo, please, fix it',
-              'Trying other mirror': 'Please, fix the proxy in /etc/yum.conf',
               'Could not retrieve mirrorlis': 'Please, fix the proxy in /etc/yum.conf'}
 
 # counter for chart (add_chart function)
@@ -55,13 +54,6 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
     no_potential_risky_packages = "yes"
-    #determine columns width
-    column_width=[]
-    for c in range(3):
-        column_width.append(max(len(current_patch_name[c]) for current_patch_name in contenr))
-    #set columns width
-    for c in range(3):
-        sheet.set_column(c, c, width=column_width[c])
     #write content to file
     for row, curren_patch in enumerate(contenr):
         for c in range(3):
@@ -93,6 +85,13 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     if counter>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
+        #determine columns width
+        column_width=[]
+        for c in range(3):
+            column_width.append(max(len(current_patch_name[c]) for current_patch_name in contenr))
+        #set columns width
+        for c in range(3):
+            sheet.set_column(c, c, width=column_width[c])
     else:
         not_need_patching+=1
     write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
@@ -235,6 +234,8 @@ def main():
                                 current_patch))
                 # if last element
                 if idx == len(patches_list) - 1:
+                    if previous_patch_for_write ==["", "", "", ""]:
+                        previous_patch_for_write=current_patch_split
                     for current_rpm in all_rpm_list:
                         try:
                             if current_rpm[:number_position.start()] == current_patch_split[2][
