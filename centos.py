@@ -133,6 +133,7 @@ def main_function():
 
     print('Starting to create xlsx-file...')
     error_list_from_xlsx = []
+
     for idx, current_server in enumerate(server_list):
         try:
             sheet = xls_file.add_worksheet(current_server)
