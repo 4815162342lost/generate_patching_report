@@ -1,0 +1,4 @@
+smtp_server="smtp.myorg.com"
+email_from="main_server@myorg.com"
+e_mails_cc='my_team@myorg.com'
+sign='<br>--------------------------------------------------------------------------------------------------------------------<br><b>Me:</b> me@myorg.com<br><b>My_second_email:</b> my_second_email@myorg.com<br><img src="cid:logo">'
