@@ -9,9 +9,13 @@ import paramiko
 import termcolor
 import xlsxwriter
 import datetime
+import logging
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
+logging.basicConfig(filename="./redhat_patching_log.txt", filemode='a', level=logging.INFO, format="%(asctime)s %(message)s" ,datefmt="%d/%m/%Y %H:%M:%S")
+logging.info("Starting the script")
 
 #append path to custom modules and import them
 sys.path.append('./modules/')
@@ -106,6 +110,7 @@ def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
         if std_error_1.find(error) != -1 or std_stdout.find(error) != -1:
             print("Critical error with server", termcolor.colored(sheet.get_name() + '.', color='red'),
                   error_list[error])
+            logging.warning("Critical error with server: {error}".format(error=error_list[error]))
             error_count += 1
             write_to_total_sheet(error_list[error], "error", sheet, total_sheet, format, idx_glob, 'rhel_oracle')
             ssh_connection.close()
@@ -129,8 +134,10 @@ def main():
     ssh_connection.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     global error_count
     servers_count = len(server_list)
+    logging.info("Server's list: {servers}".format(servers=" ".join(server_list)))
     #looping servers
     for idx_glob, server in enumerate(server_list):
+        logging.info("Working with {server} server...".format(server=server))
         print(termcolor.colored(
             server + "({idx_glob}/{servers_count})".format(idx_glob=idx_glob + 1, servers_count=servers_count),
             color='grey', on_color='on_green'))
@@ -158,12 +165,14 @@ def main():
         except (socket.error, paramiko.SSHException):
             print("Connection troubles with server " + termcolor.colored(server,
                                                                          "red") + ". Can not clear the yum cache.")
+            logging.warning("Connevtion troubles with {server} server".format(server=server))
             write_to_total_sheet("Conection troubles", "error", sheet, total_sheet, format, idx_glob, 'rhel_oracle')
             error_count += 1
             continue
         except (paramiko.ssh_exception.AuthenticationException, paramiko.BadHostKeyException):
             print("Troubles with aouthorization on the server  " + termcolor.colored(server, "red") + ".")
-            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob, 'open_suse')
+            logging.warning("Troubles with aouthorization with {server} server".format(server=server))
+            write_to_total_sheet("Authorization error", "error", sheet, total_sheet, format, idx_glob, 'rhel_oracle')
             error_count += 1
             continue
         patches_list = proc_tmp.rstrip("\n").split("\n")
@@ -181,6 +190,7 @@ def main():
             if len(current_patch_split) != 3:
                 print(termcolor.colored("Warning: ", color="yellow",
                                         on_color="on_grey") + "There are error with patch: " + str(current_patch))
+                logging.warning("There are error with patch: " + str(current_patch))
                 continue
             try:
                 number_position = re.search("-\d", current_patch_split[2])
@@ -189,12 +199,14 @@ def main():
                 if not number_position:
                     print(termcolor.colored("Warning: ", color="yellow",
                                             on_color="on_grey") + "There are error with patch: " + str(current_patch))
+                    logging.warning("There are error with patch: " + str(current_patch))
                     counter_2 -= 1
                     continue
             # if patch does not exists (current_patch_split[2])
             except IndexError:
                 print(termcolor.colored("Warning: ", color="yellow",
                                         on_color="on_grey") + "There are error with patch: " + str(current_patch))
+                logging.warning("There are error with patch: " + str(current_patch))
                 continue
             # if first element and patches counter >1
             if idx == 0 and len(patches_list) > 1 or counter_2 == 1 and len(patches_list) > 1:
@@ -232,6 +244,7 @@ def main():
                             print(termcolor.colored("Warning: ", color="yellow",
                                                     on_color="on_grey") + "There are error with patch: " + str(
                                 current_patch))
+                            logging.warning("There are error with patch: " + str(current_patch))
                 # if last element
                 if idx == len(patches_list) - 1:
                     if previous_patch_for_write ==["", "", "", ""]:
