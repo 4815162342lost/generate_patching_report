@@ -102,7 +102,7 @@ def email_sending(server_so_email):
     msg['Subject'] = subject
     msg['From'] = settings['email_from']
     msg['To'] = ",".join(e_mails)
-    msg['Cc'] = settings['e_mail_cc_before_3_days']
+    msg['Cc'] = settings['e_mail_cc_before_4_days']
     try:
         logging.info("Connecting to {smtp} smtp-server...".format(smtp=settings["smtp_server"]))
         s = smtplib.SMTP(settings['smtp_server'])
