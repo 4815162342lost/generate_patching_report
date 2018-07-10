@@ -9,15 +9,21 @@ import xlsxwriter
 import subprocess
 import re
 import termcolor
+import logging
 
 sys.path.append('./modules/')
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
+#start logging
+logging.basicConfig(filename="./centos_patching_log.txt", filemode='a', level=logging.INFO, format="%(asctime)s %(message)s" ,datefmt="%d/%m/%Y %H:%M:%S")
+logging.info("Starting the script")
 
 from create_excel_template import *
 from main import *
 
 settings=get_settings()
 args=parcer()
+
 
 servers_for_patching = []
 
@@ -97,27 +103,37 @@ def main_function():
     file= open('./server_list.txt', 'r')
     server_list = open('./server_list.txt', 'r').read().rstrip().split('\n')
     file.close()
-
+    if args.nocheck=="yes":
+        logging.info("Create csv-files only...")
+        servers_for_patching=server_list
+        perform_additional_actions(args, today, 'centos', xlsx_name, settings, servers_for_patching)
+        exit()
+    logging.info("Server list: {servers}".format(servers=str(server_list)))
     print("Starting to collect patching list for servers: " + ','.join(server_list))
-
     try:
         proc_get_updates = subprocess.Popen("salt -L '" + ','.join(
             server_list) + "' pkg.list_upgrades refresh=True --output=json --static  --hide-timeout",
                                             shell=True, universal_newlines=True, stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE)
         stdout_get_updates, stderr_get_updates = proc_get_updates.communicate(timeout=300)
+        logging.debug("stdout of the pkg.list_upgrades: {stdout_get_updates}".format(stdout_get_updates=str(stdout_get_updates)))
+        logging.debug("stderr of the pkg.list_upgrades: {stderr_get_updates}".format(stderr_get_updates=str(stderr_get_updates)))
         proc_get_all_pkgs = subprocess.Popen(
             "salt -L '" + ','.join(server_list) + "' pkg.list_pkgs --output=json --static  --hide-timeout",
             shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_get_all_pkgs, stderr_get_all_pkgs = proc_get_all_pkgs.communicate(timeout=300)
+        logging.debug("stdout of the pkg.list_pkgs: {stdout_get_all_pkgs}".format(stdout_get_all_pkgs=str(stdout_get_all_pkgs)))
+        logging.debug("stderr of the pkg.list_pkgs: {stderr_get_all_pkgs}".format(stderr_get_all_pkgs=str(stderr_get_all_pkgs)))
     except subprocess.TimeoutExpired:
         proc_get_updates.kill()
         proc_get_all_pkgs.kill()
+        logging.critical("Timeout of the salt process...")
         print("There are problem with salt! ")
         os._exit(1)
 
 
     # avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
+    logging.info("Remove trash from stdout")
     stdout_get_updates = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_updates)
     stdout_get_updates = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "",
                                 stdout_get_updates)
@@ -133,8 +149,9 @@ def main_function():
 
     print('Starting to create xlsx-file...')
     error_list_from_xlsx = []
-
+    logging.info("Starting to process json file")
     for idx, current_server in enumerate(server_list):
+        logging.info("Working with {server}".format(server=current_server))
         try:
             sheet = xls_file.add_worksheet(current_server)
             write_to_excel_file(proc_out_get_updates_json[current_server], proc_out_get_all_pkgs_json[current_server], idx, sheet)
@@ -152,6 +169,7 @@ def main_function():
         termcolor.cprint("There are problem with following servers:\n" + ', '.join(error_list_from_xlsx), color='red',
                          on_color='on_white')
     add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format)
+    logging.info("Closing xlsx-file")
     xls_file.close()
     perform_additional_actions(args, today, 'centos', xlsx_name, settings, servers_for_patching)
 
