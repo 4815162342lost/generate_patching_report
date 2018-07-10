@@ -123,6 +123,11 @@ def main():
     server_list_file = open('server_list.txt', 'r')
     server_list = server_list_file.read().rstrip().split('\n')
     server_list_file.close()
+    if args.nocheck=="yes":
+        logging.info("Create csv-files only...")
+        servers_for_patching=server_list
+        perform_additional_actions(args, today, 'redhat_oracle', xlsx_name, settings, servers_for_patching)
+        exit()
     #set ssh connection settings
     private_ssh_key = settings['ssh_key']
     ssh_private_key_type = settings['key_type']
