@@ -145,8 +145,18 @@ def main_function():
                                  stdout_get_all_pkgs)
     stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "",
                                  stdout_get_all_pkgs)
-    proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
-
+     try:
+        proc_out_get_updates_json = json.loads(stdout_get_updates)
+        stdout_get_all_pkgs = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
+        stdout_get_all_pkgs = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "",
+                                 stdout_get_all_pkgs)
+        stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "",
+                                 stdout_get_all_pkgs)
+        proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
+    except Exception as e:
+        logging.critical("Critical error during creating json. Exception: {deb}".format(deb=str(e)))
+        logging.critical("Critical error during creating json. Stdout_get_updates: {deb}".format(deb=str(stdout_get_updates)))
+        exit()
     print('Starting to create xlsx-file...')
     error_list_from_xlsx = []
     logging.info("Starting to process json file")
