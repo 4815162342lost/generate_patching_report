@@ -112,7 +112,6 @@ def email_sending(server_so_email):
     except Exception as e:
         logging.critical("Error during e-mail sending. Exception: {exception}".format(exception=str(e)))
 
-
 settings=get_settings()
 rfc_number=open('rfc_number.txt', 'r').read().rstrip()
 
