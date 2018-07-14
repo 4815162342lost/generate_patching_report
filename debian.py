@@ -66,7 +66,7 @@ def write_to_file(contenr, type, sheet, idx_glob):
         write_to_total_sheet(len(contenr.keys()), 'security', sheet, total_sheet, format, idx_glob, 'debian')
         if len(contenr.keys())>0:
             servers_for_patching.append(sheet.get_name())
-            need_patching=+1
+            need_patching+=1
         else:
             not_need_patching+=1
     if type == 'error':
