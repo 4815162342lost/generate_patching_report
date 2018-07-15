@@ -71,6 +71,7 @@ def extract_needed_servers():
     return servers_for_create_snapshot
 
 def create_snaphots(server_name):
+    '''Function for create snapshots'''
     logging.info("Trying to create snapshot for {server} server".format(server=server_name))
     try:
         proc_create_snapshot=subprocess.Popen("salt-cloud -y -a create_snapshot {server_name} snapshot_name='{RFC_number}' description='patching' memdump=False quiesce=False --out=json".format(server_name=server_name.lower(), RFC_number=rfc_number), shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -81,7 +82,7 @@ def create_snaphots(server_name):
         logging.critical("Salt-cloud timeout...")
         return (1, "salt-cloud process timeout")
     except Exception as e:
-        logging.critical("Salt-cloud unknown error: {error}..., std_out: {std_out}, std_error: {std_err}".format(error=str(e), std_out=std_out, std_err=std_err))
+        logging.critical("Salt-cloud unknown error: {error}; std_out: {std_out}; std_error: {std_err}".format(error=str(e), std_out=std_out, std_err=std_err))
         return (1, "salt-cloud unknown error")
     if "Not Found" in list(json_std_out.keys()):
         logging.warning("Server in not found in VMWare Farm")
@@ -96,7 +97,8 @@ def create_snaphots(server_name):
 
 
 def email_sending(results_dic):
-    logging.info("Prepare and send e-mail")
+    '''Function for e-mail sending'''
+    logging.info("Prepare and sending e-mail...")
     mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date}<br><b>BTC price: </b>{btc}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price())
     mail_body+="<table border='1'><tr><td>Server name</td><td>Created date</td></tr>"
     for current_result in results_dic.keys():
@@ -116,6 +118,7 @@ def email_sending(results_dic):
     msg['From'] = settings['email_from']
     msg['To'] = settings['e_mail_to_snapshots']
     try:
+        logging.info("Connecting to smtp-server...")
         s = smtplib.SMTP(settings['smtp_server'])
         s.sendmail(msg['From'], settings['e_mail_to_snapshots'], msg.as_string())
         s.quit()
