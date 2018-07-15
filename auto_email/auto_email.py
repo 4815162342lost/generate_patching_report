@@ -15,6 +15,7 @@ from distutils.sysconfig import get_python_lib
 import logging
 
 logging.basicConfig(filename="/var/log/patching/patching_auto_email.log", filemode="a", format="%(asctime)s %(message)s", datefmt="%d/%m/%Y %H:%M:%S", level=logging.INFO)
+logging.info("==================================================================")
 logging.info("Starting the script...")
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -28,7 +29,7 @@ def get_settings():
 
 def extract_needed_servers():
     '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
-    logging.info("Searching needed servers...")
+    logging.info("Searching needed servers from csv-files...")
     servers_for_sending_email = {}
     csv_files=glob.glob('./*linux_MM*.csv')
     logging.info("Working with these csv-files: {csv}".format(csv=str(csv_files)))
@@ -51,7 +52,7 @@ def extract_needed_servers():
 
 def extract_emails_and_so(servers):
     '''return server name, SO, e-mails, project name'''
-    logging.info("Connecting to sqlite3 database")
+    logging.info("Connecting to sqlite3 database...")
     connect_patching_db = sqlite3.connect('./patching.db')
     cursor_patching_db=connect_patching_db.cursor()
     servers_contact = []
@@ -83,17 +84,17 @@ def prepare_email(server_for_sending_emails):
                     counter += 1
             #if all attributes are same
             if counter == 4:
-                common_servers.append(current_server[0])
+                common_servers.append(current_server[0].upper())
                 params = current_server[1:]
             counter = 0
         email_sending(common_servers, params)
         common_servers.clear()
 
-def email_sending(servers_group, params):
+def email_sending(servers_for_sending_emails, params):
     '''Function for send e-mail'''
     logging.info("Trying to send e-mail to customer...")
-    logging.info("Servers whcih will be in current e-mail: {servers}".format(servers=" ".join(servers_group)))
-    logging.info("Customer names, e-mails, project name, date: {additional_info}".format(additional_info=str(params)))
+    logging.info("Servers whcih will be in current e-mail: {servers}".format(servers=" ".join(servers_for_sending_emails)))
+    logging.info("Customer names: {names}, e-mails: {emails}, project name {project_name}, date: {date}".format(names=params[0], emails=params[1], project_name=params[2], date=params[3]))
     so_str = ''
     services_owners = params[0].split(',')
     if len(services_owners) == 1:
@@ -105,11 +106,11 @@ def email_sending(servers_group, params):
         so_str = so_str.replace(',  and', ' and')
 
     servers_str=''
-    if len(servers_group)==1:
-        servers_str='of <b><font color=bc6c03>%s</font></b> server will be started at <b><u>%s CET</u></b>.'% (servers_group[0],params[3].split(' ')[1].upper())
-    elif len(servers_group)>1:
+    if len(servers_for_sending_emails)==1:
+        servers_str='of <b><font color=bc6c03>%s</font></b> server will be started at <b><u>%s CET</u></b>.'% (servers_for_sending_emails[0],params[3].split(' ')[1])
+    elif len(servers_for_sending_emails)>1:
         servers_str='of following servers will be started at <b><u>{date} CET:<br></u></b><b><font color=bc6c03>{servers}</font></b>'\
-            .format(date=params[3].split(' ')[1], servers='<br>'.join(servers_group.upper()))
+            .format(date=params[3].split(' ')[1], servers='<br>'.join(servers_for_sending_emails))
     bye=('Best regards,', 'Kind regards,')[random.randint(0,1)]
     message = """<html><head></head><body>Dear {SO},<br><br>Please be informed that patching {servers}<br><br>{bye}{sign}</body></html>""".format(SO=so_str, date=params[3], servers=servers_str, bye=bye, sign=settings["sign"])
     subject = 'RFC {rfc_number}: monthly Linux-patching ('.format(rfc_number=rfc_number) + params[2] + ')'
@@ -149,3 +150,4 @@ if servers_which_will_be_patched_soon:
     prepare_email(server_so_email_date)
 else:
     logging.info("There are no servers which will be patched soon")
+logging.info("Exiting. Bye-bye...")
