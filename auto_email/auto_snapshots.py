@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patchin
 sign = '<br>--------------------------------------------------------------------------------------------------------------------' \
        '<br><b>This message has been generated automatically!</b>'
 
+logging.info("=======================================================================")
 logging.info("Starting the script...")
 
 def get_settings():
@@ -33,7 +34,7 @@ def get_bitcoin_price():
     logging.info("Let's know the current BTC proce...")
     import requests
     import json
-    proxies={"http_proxy": settings["http_proxy"], "https_proxy" : settings["https_proxy"]}
+    proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
     try:
         r=requests.get("https://blockchain.info/ticker", proxies=proxies)
         bitcoin_prise = json.loads(r.text)
@@ -63,20 +64,25 @@ def extract_needed_servers():
             if patching_start_time > min_start_time and patching_start_time < max_start_time:
                 servers_for_create_snapshot[row[0]] = row[1]
         csv_file.close()
-    logging.info("For these servers auto-snapshot will be created: {servers_snapshots}".format(servers_snapshots=servers_for_create_snapshot))
+    if servers_for_create_snapshot:
+        logging.info("For these servers auto-snapshot will be created: {servers_snapshots}".format(servers_snapshots=servers_for_create_snapshot))
+    else:
+        logging.info("There are no servers which will be patched soon...")
     return servers_for_create_snapshot
 
 def create_snaphots(server_name):
     logging.info("Trying to create snapshot for {server} server".format(server=server_name))
     try:
-        proc_create_snapshot=subprocess.Popen("sudo salt-cloud -y -a create_snapshot {server_name} snapshot_name='{RFC_number}' description='patching'\
-         memdump=False quiesce=False --out=json".format(server_name=server_name.lower(), RFC_number=rfc_number), shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc_create_snapshot=subprocess.Popen("salt-cloud -y -a create_snapshot {server_name} snapshot_name='{RFC_number}' description='patching' memdump=False quiesce=False --out=json".format(server_name=server_name.lower(), RFC_number=rfc_number), shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         std_out, std_err= proc_create_snapshot.communicate(timeout=360)
         json_std_out=json.loads(std_out)
     except subprocess.TimeoutExpired:
         proc_create_snapshot.kill()
         logging.critical("Salt-cloud timeout...")
-        return (1, "salt-cloud process timeuot")
+        return (1, "salt-cloud process timeout")
+    except Exception as e:
+        logging.critical("Salt-cloud unknown error: {error}..., std_out: {std_out}, std_error: {std_err}".format(error=str(e), std_out=std_out, std_err=std_err))
+        return (1, "salt-cloud unknown error")
     if "Not Found" in list(json_std_out.keys()):
         logging.warning("Server in not found in VMWare Farm")
         return (1, "server is not found in VMWare Farm")
@@ -124,3 +130,4 @@ if needed_servers:
     for current_server in needed_servers:
         salt_cloud_result[current_server]=create_snaphots(current_server)
     email_sending(salt_cloud_result)
+logging.info("All done. Exiting...")
