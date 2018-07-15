@@ -80,20 +80,20 @@ def create_snaphots(server_name):
     except subprocess.TimeoutExpired:
         proc_create_snapshot.kill()
         logging.critical("Salt-cloud timeout...")
-        return (1, "salt-cloud process timeout")
+        return "salt-cloud process timeout"
     except Exception as e:
         logging.critical("Salt-cloud unknown error: {error}; std_out: {std_out}; std_error: {std_err}".format(error=str(e), std_out=std_out, std_err=std_err))
-        return (1, "salt-cloud unknown error")
+        return "salt-cloud unknown error"
     if "Not Found" in list(json_std_out.keys()):
         logging.warning("Server in not found in VMWare Farm")
-        return (1, "server is not found in VMWare Farm")
+        return "server is not found in VMWare Farm"
     try:
         snapshot_date=json_std_out[list(json_std_out.keys())[0]]["vmware"][server_name.lower()]["Snapshot created successfully"]["created"]
         logging.info("Snapshot created successfully. Snapshot's date: {snapshot_date}".format(snapshot_date=snapshot_date))
-        return (0, snapshot_date)
+        return snapshot_date
     except Exception as e:
         logging.critical("Unknown error. Debug info: {debug}".format(debug=str(e)))
-        return (1, 'Unknown error')
+        return 'Unknown error'
 
 
 def email_sending(results_dic):
@@ -102,8 +102,7 @@ def email_sending(results_dic):
     mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date}<br><b>BTC price: </b>{btc}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price())
     mail_body+="<table border='1'><tr><td>Server name</td><td>Created date</td></tr>"
     for current_result in results_dic.keys():
-        mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>".format(server_name=current_result, return_code=results_dic[current_result][0],
-                                                                                                            additional_info=results_dic[current_result][1])
+        mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>".format(server_name=current_result.upper(), additional_info=results_dic[current_result])
     mail_body+="</table>{sign}</body></html>".format(sign=sign)
     subject = '[Snapshots] RFC {rfc_number}: monthly Linux-patching'.format(rfc_number=rfc_number)
     msg = MIMEMultipart('related')
