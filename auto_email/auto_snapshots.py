@@ -11,6 +11,7 @@ from distutils.sysconfig import get_python_lib
 import subprocess
 import json
 import logging
+import dateutil.tz
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
@@ -90,7 +91,10 @@ def create_snaphots(server_name):
     try:
         snapshot_date=json_std_out[list(json_std_out.keys())[0]]["vmware"][server_name.lower()]["Snapshot created successfully"]["created"]
         logging.info("Snapshot created successfully. Snapshot's date: {snapshot_date}".format(snapshot_date=snapshot_date))
-        return snapshot_date
+        utc_snapshot_date=datetime.datetime.strptime(snapshot_date, '%Y-%m-%d %H:%M:%S')
+        utc_snapshot_date=utc_snapshot_date.replace(tzinfo=dateutil.tz.gettz('UTC'))
+        cet_snapshot_date=utc_snapshot_date.astimezone(dateutil.tz.gettz('Europe/Paris'))
+        return str(datetime.datetime.strftime(cet_snapshot_date, '%Y-%m-%d %H:%M:%S'))
     except Exception as e:
         logging.critical("Unknown error. Debug info: {debug}".format(debug=str(e)))
         return 'Unknown error'
