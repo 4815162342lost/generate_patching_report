@@ -86,7 +86,7 @@ def create_snaphots(server_name):
         logging.critical("Salt-cloud unknown error: {error}; std_out: {std_out}; std_error: {std_err}".format(error=str(e), std_out=std_out, std_err=std_err))
         return "salt-cloud unknown error"
     if "Not Found" in list(json_std_out.keys()):
-        logging.warning("Server in not found in VMWare Farm")
+        logging.warning("Server is not found in VMWare Farm")
         return "server is not found in VMWare Farm"
     try:
         snapshot_date=json_std_out[list(json_std_out.keys())[0]]["vmware"][server_name.lower()]["Snapshot created successfully"]["created"]
@@ -96,8 +96,8 @@ def create_snaphots(server_name):
         cet_snapshot_date=utc_snapshot_date.astimezone(dateutil.tz.gettz('Europe/Paris'))
         return str(datetime.datetime.strftime(cet_snapshot_date, '%Y-%m-%d %H:%M:%S'))
     except Exception as e:
-        logging.critical("Unknown error. Debug info: {debug}".format(debug=str(e)))
-        return 'Unknown error'
+        logging.critical("Unknown error. Debug info: {debug}; std_out: {std_out}; std_error: {std_err}".format(debug=str(e), std_out=std_out, std_err=std_err))
+        return 'Unknown error, see logs'
 
 
 def email_sending(results_dic):
