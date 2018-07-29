@@ -1,4 +1,20 @@
-### Get list of all available updates of the packages on Linux!
+### Solution for automatize several steps in patching process
+Hi, I am working as Linux engeneer and we have several hundred Linux-servers in our scope. We have a ugly patching process in our IT-infrastructure. And this scripts have been wrote for particilary automatize patching process. 
+Perhaps you will ask 'why your patching approach so strange?'. I can not answered for you, because we are working with ITIL and must follow strange and non-optimal processess. We can not influence to this process.
+
+#### So, listen, common aproach, basic rules:
+1) Every our server have a patching time and patching day
+2) Patching day -- day of the week in month (for example, first Monday in monthh, third Sunday and etc)
+3) We have patching codes for patching date
+4) Every server aso have a patching time (Second Monday 16:00-20:00)
+
+#### Our infrastructure:
+1) We are using [salt](https://github.com/saltstack/salt) for automatize our work
+2) Our virtual servers work on VmWare
+3) We have CentOS, RedHat, Debian and Open Suse distr
+
+#### Our patching approach (our amazing processes)
+1) 
 
 Simple Python 3 program for collect patching list (get upgradeable packages) and save results to Excel (xlsx) format.
 
