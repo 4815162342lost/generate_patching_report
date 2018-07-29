@@ -56,22 +56,11 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     global not_need_patching
     global servers_for_patching
     kernel_update = reboot_require = "no"
-    format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
+    format_kernel = format_reboot = format['format_green']
     no_potential_risky_packages = "yes"
     #write content to file
     for row, curren_patch in enumerate(contenr):
-        for c in range(3):
-            sheet.write(row +2, c, curren_patch[c])
-        #determine potential risky packages, new kernel is available or not, reboot needed  or not
-        if no_potential_risky_packages == "yes":
-            for current_bad in settings['bad_packages']:
-                if str(curren_patch[0]).startswith(current_bad):
-                    if str(curren_patch[0]).startswith("mysql-libs") or str(curren_patch[0]).startswith(
-                            "mariadb-libs"):
-                        continue
-                    no_potential_risky_packages = "no"
-                    format_potential_risky_packages = format['format_red']
-                    break
+        sheet.write_row(row=row+2, col=0, data=curren_patch, cell_format=format['format_border'])
         if kernel_update == "no":
             if curren_patch[0].startswith("kernel") or curren_patch[0].startswith("linux-image"):
                 kernel_update = reboot_require = 'yes'
@@ -86,7 +75,6 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     #write results to total sheet
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-    total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     if counter>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
         #determine columns width
@@ -120,6 +108,7 @@ def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
 def main():
     '''main function'''
     #open file and create list of servers
+    global servers_for_patching
     server_list_file = open('server_list.txt', 'r')
     server_list = server_list_file.read().rstrip().split('\n')
     server_list_file.close()
