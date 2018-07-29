@@ -42,7 +42,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     global error_count
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
-    no_potential_risky_packages = "yes"
     column_width=[]
     column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
     column_width.append(max(len(str(value)) for value in content_updates_pkgs.values()))
@@ -55,12 +54,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     except KeyError:
         pass
     for key, value in sorted(content_updates_pkgs.items()):
-        if no_potential_risky_packages == "yes":
-            for current_bad_package in settings['bad_packages']:
-                if str(key).startswith(current_bad_package):
-                    no_potential_risky_packages = "no"
-                    format_potential_risky_packages = format['format_red']
-                    break
         if kernel_update == "no":
             if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
                 kernel_update = "yes"
@@ -90,7 +83,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
         sheet.set_column(c,c,width=column_width[c]+2)
     total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
-    total_sheet.write(idx + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     if counter > 0:
         need_patching += 1;
         servers_for_patching.append(sheet.get_name())
@@ -99,7 +91,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
 
 def main_function():
-    global error_count
+    global error_count; global  servers_for_patching
     file= open('./server_list.txt', 'r')
     server_list = open('./server_list.txt', 'r').read().rstrip().split('\n')
     file.close()
@@ -107,6 +99,7 @@ def main_function():
         logging.info("Create csv-files only...")
         servers_for_patching=server_list
         perform_additional_actions(args, today, 'centos', xlsx_name, settings, servers_for_patching)
+        xls_file.close()
         exit()
     logging.info("Server list: {servers}".format(servers=str(server_list)))
     print("Starting to collect patching list for servers: " + ','.join(server_list))
@@ -145,18 +138,8 @@ def main_function():
                                  stdout_get_all_pkgs)
     stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "",
                                  stdout_get_all_pkgs)
-     try:
-        proc_out_get_updates_json = json.loads(stdout_get_updates)
-        stdout_get_all_pkgs = re.sub("Minion .* did not respond. No job will be sent.", "", stdout_get_all_pkgs)
-        stdout_get_all_pkgs = re.sub("No minions matched the target. No command was sent, no jid was assigned.", "",
-                                 stdout_get_all_pkgs)
-        stdout_get_all_pkgs = re.sub("minion .* was already deleted from tracker, probably a duplicate key", "",
-                                 stdout_get_all_pkgs)
-        proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
-    except Exception as e:
-        logging.critical("Critical error during creating json. Exception: {deb}".format(deb=str(e)))
-        logging.critical("Critical error during creating json. Stdout_get_updates: {deb}".format(deb=str(stdout_get_updates)))
-        exit()
+    proc_out_get_all_pkgs_json = json.loads(stdout_get_all_pkgs)
+
     print('Starting to create xlsx-file...')
     error_list_from_xlsx = []
     logging.info("Starting to process json file")
