@@ -7,10 +7,8 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 import datetime
 import re
 import socket
-
 import sys
 sys.path.append('./modules/')
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
 from create_excel_template import *
 from main import *
 
@@ -35,8 +33,6 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
     else:
         reboot_require="no"
         format_reboot=format['format_green']
-    no_potential_risky_packages = "yes"
-    format_potential_risky_packages = format['format_green']
     column0_width = 10
     col=0
     for current_patch in contenr:
@@ -44,12 +40,6 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
             continue
         if len(current_patch)>column0_width:
             column0_width=len(current_patch)
-        if no_potential_risky_packages=='yes':
-            for current_bad in settings['bad_packages']:
-                if current_patch.find(current_bad)!=-1:
-                    no_potential_risky_packages='no'
-                    format_potential_risky_packages=format['format_red']
-                    break
         if re.search('.*Linux Kernel', current_patch) != -1:
             kernel_update = 'yes'
             format_kernel = format['format_red']
@@ -57,7 +47,6 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
         col+=1
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-    total_sheet.write(idx_glob + 2, 5, no_potential_risky_packages, format_potential_risky_packages)
     sheet.set_column(0, 0, width=column0_width)
     if col>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
@@ -111,7 +100,7 @@ def main_function():
     perform_additional_actions(args, today, 'open_suse', xlsx_name, settings, servers_for_patching)
 
 
-termcolor.cprint("____________________________________________________________________\n                                                 _,-\"-._        tbk\n                 <_     _>\n     _____----\"----________________________________`---'_______\n    /----------------------------------------------------------\ \n   /] [_] #### [___] #### [___]  \/  [___] #### [___] #### [_] [\ \n  /----------------------------11407-----------------------|-|---\ \n  |=          S  B  B                          C  F  F     |_|  =|\n[=|______________________________________________________________|=]\n   )/_-(-o-)=_=(=8=)=_=(-o-)-_ [____] _-(-o-)=_=(=8=)=_=(-o-)-_\(\n====================================================================\nSBB CFF FFS  Ae 6/6  (1952)  Co'Co'  125 km/h  4300 kW", color='red', on_color='on_white')
+termcolor.cprint("                                                   ' \/ '\n   _  _                        &lt;|\n    \/              __'__     __'__      __'__\n                   /    /    /    /     /    / \n                  /\____\    \____\     \____\               _  _\n                 / ___!___   ___!___    ___!___               \/ \n               // (      (  (      (   (      (\n             / /   \______\  \______\   \______\ \n           /  /   ____!_____ ___!______ ____!_____\n         /   /   /         //         //         / \n      /    /   |         ||         ||         |\n     /_____/     \         \\         \\         \ \n           \      \_________\\_________\\_________\ \n            \         |          |         |\n             \________!__________!_________!________/\n              \|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_/|\n               \    _______________                / \n^^^%%%^%^^^%^%%^\_\"/_)/_)_/_)__)/_)/)/)_)_\"_'_\"_//)/)/)/)%%%^^^%^^%%%%^\n^!!^^\"!%%!^^^!^^^!!^^^%%%%%!!!!^^^%%^^^!!%%%%^^^!!!!!!%%%^^^^%^^%%%^^^!", color='red', on_color='on_white')
 xlsx_name = 'Liniux_list_of_updates_' + str(today.strftime("%B %Y")) + "_Open_Suse.xlsx"
 xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
