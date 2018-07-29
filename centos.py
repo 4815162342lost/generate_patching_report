@@ -41,7 +41,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     global not_need_patching
     global error_count
     kernel_update = reboot_require = "no"
-    format_kernel = format_reboot = format_potential_risky_packages = format['format_green']
+    format_kernel = format_reboot = format['format_green']
     column_width=[]
     column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
     column_width.append(max(len(str(value)) for value in content_updates_pkgs.values()))
