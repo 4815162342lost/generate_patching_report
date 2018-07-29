@@ -2,7 +2,6 @@
 import os
 import re
 import socket
-import sqlite3
 import sys
 from distutils.sysconfig import get_python_lib
 import paramiko
@@ -57,7 +56,6 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     global servers_for_patching
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format['format_green']
-    no_potential_risky_packages = "yes"
     #write content to file
     for row, curren_patch in enumerate(contenr):
         sheet.write_row(row=row+2, col=0, data=curren_patch, cell_format=format['format_border'])
