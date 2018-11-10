@@ -9,6 +9,7 @@ import termcolor
 import xlsxwriter
 import datetime
 import logging
+import csv
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -56,9 +57,13 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     global servers_for_patching
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format['format_green']
+    csv_file_for_server=open('./rhel_based/' + sheet.get_name().lower(), 'w')
+    csv_writer=csv.writer(csv_file_for_server, delimiter=';')
+    csv_writer.writerow(("Package name", 'Current version', 'Available version'))
     #write content to file
     for row, curren_patch in enumerate(contenr):
         sheet.write_row(row=row+2, col=0, data=curren_patch, cell_format=format['format_border'])
+        csv_writer.writerow((curren_patch))
         if kernel_update == "no":
             if curren_patch[0].startswith("kernel") or curren_patch[0].startswith("linux-image"):
                 kernel_update = reboot_require = 'yes'
@@ -85,7 +90,11 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     else:
         not_need_patching+=1
     write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
-
+    # total_txt_file=open("./rhel_based/total.txt", 'a')
+    # csv_writer=csv.writer(total_txt_file, delimiter=";")
+    # csv_writer.writerow((sheet.get_name().lower(), kernel_update, reboot_require))
+    # total_txt_file.close()
+    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter)
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
     '''Function for find error from error_list variable, return True if error found'''
