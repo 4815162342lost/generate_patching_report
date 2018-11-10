@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import sys
 from distutils.sysconfig import get_python_lib
-
+import csv
 sys.path.append(get_python_lib())
 import os
 import json
@@ -47,6 +47,10 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     column_width.append(max(len(str(value)) for value in content_updates_pkgs.values()))
     column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
     counter = 0
+    #create empty csv-file
+    csv_file_for_server=open('./rhel_based/' + sheet.get_name().lower(), 'w')
+    csv_writer=csv.writer(csv_file_for_server, delimiter=';')
+    csv_writer.writerow(("Package name", 'Current version', 'Available version'))
     # avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
     try:
         content_updates_pkgs.pop("retcode")
@@ -62,10 +66,12 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
                 format_reboot = format['format_red']
         sheet.write(counter + 2, 0, key, format['format_border'])
         try:
-            sheet.write(counter + 2, 1, content_all_pkgs[key], format['format_border'])
+            current_version=content_all_pkgs[key]
         except KeyError:
-            sheet.write(counter + 2, 1, "new packages (will be installed as dependency)", format['format_border'])
-        sheet.write(counter + 2, 2, value, format['format_border'])
+            current_version="new packages (will be installed as dependency)"
+        for coun, content in enumerate((key, current_version, value)):
+            sheet.write(counter+2, coun, content, format['format_border'])
+        csv_writer.writerow((key, current_version, value))
         counter += 1
     if kernel_update == "no":
         for current_package in packages_which_require_reboot:
@@ -79,6 +85,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
                     reboot_require = "yes"
                     format_reboot = format['format_red']
                     break
+    csv_file_for_server.close()
     for c in range(3):
         sheet.set_column(c,c,width=column_width[c]+2)
     total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
@@ -89,6 +96,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     else:
         not_need_patching += 1
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
+    write_csv_total("./rhel_based/total.txt",sheet.get_name().lower(), kernel_update, reboot_require, counter)
 
 def main_function():
     global error_count; global  servers_for_patching
@@ -158,6 +166,7 @@ def main_function():
             sheet.set_column(0, 0, width=17)
             error_count+=1
         except Exception as e:
+            print(e)
             error_list_from_xlsx.append(current_server)
             termcolor.cprint(
                 'Error occured during creation the sheet %s. Perhaps you have two or more same servers in server_list.txt file' % current_server,
