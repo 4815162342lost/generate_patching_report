@@ -44,13 +44,14 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     format_kernel = format_reboot = format['format_green']
     column_width=[]
     column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
-    column_width.append(max(len(str(value)) for value in content_updates_pkgs.values()))
-    column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
+    max_t=max(len(str(value)) for value in content_updates_pkgs.values())
+    column_width.append(max_t)
+    column_width.append(max_t)
     counter = 0
     #create empty csv-file
     csv_file_for_server=open('./rhel_based/' + sheet.get_name().lower(), 'w')
     csv_writer=csv.writer(csv_file_for_server, delimiter=';')
-    csv_writer.writerow(("Package name", 'Current version', 'Available version'))
+    csv_writer.writerow(("Package name", 'Current version', 'Available version', 'Updates count', 'Width_0', 'Width_1', 'Width_2'))
     # avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
     try:
         content_updates_pkgs.pop("retcode")
@@ -96,7 +97,9 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     else:
         not_need_patching += 1
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
-    write_csv_total("./rhel_based/total.txt",sheet.get_name().lower(), kernel_update, reboot_require, counter)
+    #rhel7 do not support modern python3...
+    #write_csv_total("./rhel_based/total.txt",sheet.get_name().lower(), kernel_update, reboot_require, counter, *column_width)
+    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
 def main_function():
     global error_count; global  servers_for_patching
