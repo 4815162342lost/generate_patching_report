@@ -21,10 +21,12 @@ def parcer():
     return args
 
 
-def write_csv_total(csv_name, server_name, kernel_upgrade, reboot_required, counter):
+#python3 on Centos7 is so old...
+#def write_csv_total(csv_name, server_name, kernel_upgrade, reboot_required, counter, *column_width):
+def write_csv_total(csv_name, server_name, kernel_upgrade, reboot_required, counter, column_width):
     total_txt_file=open(csv_name, 'a')
     csv_writer=csv.writer(total_txt_file, delimiter=";")
-    csv_writer.writerow((server_name, kernel_upgrade, reboot_required, counter))
+    csv_writer.writerow((server_name, kernel_upgrade, reboot_required, counter, column_width[0], column_width[1], column_width[2]))
     total_txt_file.close()
 
 
