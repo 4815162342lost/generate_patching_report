@@ -90,11 +90,7 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     else:
         not_need_patching+=1
     write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
-    # total_txt_file=open("./rhel_based/total.txt", 'a')
-    # csv_writer=csv.writer(total_txt_file, delimiter=";")
-    # csv_writer.writerow((sheet.get_name().lower(), kernel_update, reboot_require))
-    # total_txt_file.close()
-    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter)
+    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
     '''Function for find error from error_list variable, return True if error found'''
