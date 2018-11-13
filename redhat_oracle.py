@@ -89,6 +89,9 @@ def write_to_file(contenr, sheet, idx_glob, counter):
             sheet.set_column(c, c, width=column_width[c])
     else:
         not_need_patching+=1
+        column_width = []
+        for i in range(3):
+            column_width.append(0)
     write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
     write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
