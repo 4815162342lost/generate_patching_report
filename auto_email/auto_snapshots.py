@@ -49,6 +49,26 @@ def get_bitcoin_price():
         return "unknown error"
 
 
+def get_eth_zec_price():
+    '''Return Etherum and Zcash price. Why not?'''
+    logging.info("Getting ETH and ZEC price")
+    import requests
+    import json
+    proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
+    try:
+        r=requests.get("https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,ZEC&tsyms=USD", proxies=proxies)
+        eth_zec_json=json.loads(r.text)
+        return str(int(eth_zec_json['ETH']['USD'])) + "$", str(int(eth_zec_json['ZEC']['USD'])) + "$"
+    except Exception as e:
+        logging.warning("Can not get the ETH\ZEC price, exception: {exc}".format(exc=str(e)))
+        try:
+            logging.warning("Https status code: {code}; content: {content}".format(code=str(r.status_code), content=str(r.text)))
+        except:
+            logging.warning("Can not read https status code and content")
+        finally:
+            return ("unknown error","unknown error")
+
+
 def extract_needed_servers():
     '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
     servers_for_create_snapshot = {}
@@ -57,8 +77,8 @@ def extract_needed_servers():
     logging.info("Working with following csv-files: {csv}".format(csv=str(csv_files)))
     for csv_file_for_open in csv_files:
         csv_file = open(csv_file_for_open)
-        min_start_time = datetime.datetime.now() + datetime.timedelta(minutes=13)
-        max_start_time = datetime.datetime.now() + datetime.timedelta(minutes=28)
+        min_start_time = datetime.datetime.now() + datetime.timedelta(minutes=1)
+        max_start_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
         patching_schedule_csv = csv.reader(csv_file, delimiter=';')
         for row in patching_schedule_csv:
             patching_start_time = datetime.datetime.strptime(row[1], '%d.%m.%Y %H:%M')
@@ -103,7 +123,8 @@ def create_snaphots(server_name):
 def email_sending(results_dic):
     '''Function for e-mail sending'''
     logging.info("Prepare and sending e-mail...")
-    mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date}<br><b>BTC price: </b>{btc}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price())
+    eth, zec = get_eth_zec_price()
+    mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date} CET<br><b>BTC price: </b>{btc}<br> <b>ETH price: </b>{eth}<br> <b>ZEC price: </b>{zec}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price(), eth=eth, zec=zec)
     mail_body+="<table border='1'><tr><td>Server name</td><td>Created date</td></tr>"
     for current_result in results_dic.keys():
         mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>".format(server_name=current_result.upper(), additional_info=results_dic[current_result])
