@@ -1,12 +1,12 @@
 ### Solution for automatize several steps in patching process
 Hi, I am working as Linux engeneer and we have several hundred Linux-servers in our scope. We have a ugly patching process in our IT-infrastructure. And this scripts have been wrote for particilary automatize patching process. 
-Perhaps you will ask 'why your patching approach so strange?'. I can not answered for you, because we are working with ITIL and must follow strange and non-optimal processess. We can not influence to this process.
+Perhaps you will ask 'why your patching approach so strange?'. I can not answered for you, because we are working with ITIL and must follow strange and non-optimal processess. We can not influence to this process. Also our managers are terrible and do not have a it-knowledge and they are thinking that all fine... 
 
 #### So, listen, common aproach, basic rules:
 1) Every our server have a patching time and patching day
-2) Patching day -- day of the week in month (for example, first Monday in monthh, third Sunday and etc)
-3) We have patching codes for patching date
-4) Every server aso have a patching time (Second Monday 16:00-20:00)
+2) Patching day -- day of the week in month (for example, first Monday in monthh, third Sunday and etc.)
+3) We have patching codes for patching days
+4) Every server aso have a patching time (Second Monday between 16:00-20:00 CET)
 
 #### Our infrastructure:
 1) We are using [salt](https://github.com/saltstack/salt) for automatize our work
@@ -14,7 +14,17 @@ Perhaps you will ask 'why your patching approach so strange?'. I can not answere
 3) We have CentOS, RedHat, Debian and Open Suse distr
 
 #### Our patching approach (our amazing processes)
-1) 
+1) On one day of the month we must collect the patching list (list of updates which will be installed on servers) for future Patching cycle. We collect this report once per month. Honestly we do not use the ‘repo freeze’ and our patching report can be non-relevant even today if new patches will be released… But nobody care regarding to this, it is only formal thing
+2) After that this list send to SO (service owners) to review (they should investigate this list with application support team and decide which patches can affect the application stability and should be excluded from patching). But during 2 year we did not receive any feedback from service owners, but nobody care regarding to this
+3) During collection of patching list also csv-files are created which used for schedule maintenance mode in monitoring system (avoid unnecessary incidents), csv-files which used for send e-mail notification before 15 min. patching process, create snapshots and etc. This section will be considered later
+4) We schedule maintenance mode in check-mk for affected servers (avoid unnecessary servers) once per month via special script on check-mk server side and csv-files
+5) Before 15 min. to patching every service owners and application support team receive an e-mail notification such as:
+*‘Dear [name],
+Please be informed that patching of [server_name] server will be started at [time] CET’*
+6) Before 5 min. other script create snapshot of the virtual servers via [salt-cloud](https://docs.saltstack.com/en/latest/topics/cloud/vmware.html#configuration) solution
+7) And patching performed manually [yes, manual patching in 2018(!), my company is not modern]. Once patching completed we send the notification to service owner manually (reply to e-mail from point 5)
+
+
 
 Simple Python 3 program for collect patching list (get upgradeable packages) and save results to Excel (xlsx) format.
 
