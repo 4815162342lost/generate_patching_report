@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import sys
 from distutils.sysconfig import get_python_lib
-import csv
 sys.path.append(get_python_lib())
 import os
 import json
@@ -43,15 +42,8 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format['format_green']
     column_width=[]
-    column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
-    max_t=max(len(str(value)) for value in content_updates_pkgs.values())
-    column_width.append(max_t)
-    column_width.append(max_t)
     counter = 0
-    #create empty csv-file
-    csv_file_for_server=open('./rhel_based/' + sheet.get_name().lower(), 'w')
-    csv_writer=csv.writer(csv_file_for_server, delimiter=';')
-    csv_writer.writerow(("Package name", 'Current version', 'Available version', 'Updates count', 'Width_0', 'Width_1', 'Width_2'))
+    csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
     # avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
     try:
         content_updates_pkgs.pop("retcode")
@@ -86,20 +78,27 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
                     reboot_require = "yes"
                     format_reboot = format['format_red']
                     break
-    csv_file_for_server.close()
-    for c in range(3):
-        sheet.set_column(c,c,width=column_width[c]+2)
     total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
     if counter > 0:
+        column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
+        max_t = max(len(str(value)) for value in content_updates_pkgs.values())
+        for i in range(1,3)
+            column_width.append(max_t)
         need_patching += 1;
+        for c in range(3):
+            sheet.set_column(c, c, width=column_width[c] + 2)
         servers_for_patching.append(sheet.get_name())
     else:
+        for i in range(3):
+            column_width.append(0)
+        sheet.set_column(0,0,width=20)
         not_need_patching += 1
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
-    #rhel7 do not support modern python3...
+    #rhel7 does not support modern python3...
     #write_csv_total("./rhel_based/total.txt",sheet.get_name().lower(), kernel_update, reboot_require, counter, *column_width)
-    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
+    write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
+
 
 def main_function():
     global error_count; global  servers_for_patching
@@ -193,4 +192,5 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
+csv_total=return_csv_for_total(today.strftime("%b_%Y"))
 main_function()

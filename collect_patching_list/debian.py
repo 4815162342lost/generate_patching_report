@@ -27,41 +27,42 @@ def write_to_file(contenr, type, sheet, idx_glob):
     global need_patching
     global not_need_patching
     if type == 'patch':
+        csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
         kernel_update = reboot_require = "no"
         format_kernel = format_reboot = format['format_green']
-        column0_width = column1_width = column2_width = 10
+        column_width=[]
         if reboot_require=='no' and 'systemd' in contenr.keys():
             reboot_require='yes'
             format_reboot=format['format_red']
         for col, current_patch in enumerate(contenr.keys()):
-            if len(current_patch)>column0_width:
-                column0_width=len(current_patch)
-            if len(contenr[current_patch][0])>column2_width:
-                column2_width=len(contenr[current_patch][0])
-            if len(contenr[current_patch][1])>column1_width:
-                column1_width=len(contenr[current_patch][1])
-            if re.search('linux-image.+', current_patch):
+            if kernel_update == 0 and re.search('linux-image.+', current_patch):
                 kernel_update = reboot_require = 'yes'
                 format_kernel = format_reboot = format['format_red']
-            sheet.write(col + 2, 0, current_patch)
-            sheet.write(col + 2, 1, contenr[current_patch][1])
-            sheet.write(col + 2, 2, contenr[current_patch][0])
+            sheet.write_row(col+2, 0, (current_patch, contenr[current_patch][1], contenr[current_patch][0]), format['format_border'])
+            csv_writer.writerow((current_patch, contenr[current_patch][1], contenr[current_patch][0]))
         total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
         total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-        sheet.set_column(0, 0, width=column0_width)
-        sheet.set_column(1, 1, width=column1_width)
-        sheet.set_column(2, 2, width=column2_width)
         write_to_total_sheet(len(contenr.keys()), 'security', sheet, total_sheet, format, idx_glob, 'debian')
         if len(contenr.keys())>0:
             servers_for_patching.append(sheet.get_name())
             need_patching+=1
+            column_width.append(max(len(current_var) for current_var in contenr.keys()))
+            column_width.append(max(len(contenr[current_var][1]) for current_var in contenr.keys()))
+            column_width.append(max(len(contenr[current_var][0]) for current_var in contenr.keys()))
+            for idx, current_column in enumerate(column_width):
+                sheet.set_column(idx, idx, width=current_column)
         else:
             not_need_patching+=1
+            sheet.set_column(0, 0, width=20)
+            for i in range(3):
+                column_width.append(0)
+        write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, len(contenr.keys()), column_width)
     if type == 'error':
         global error_count
         error_count+=1
         servers_with_error.append(sheet.get_name())
         sheet.write(0,0,"Unknow error", format["format_bold"])
+        sheet.set_column(0, 0, width=20)
         sheet.set_tab_color("purple")
         total_sheet.write(idx_glob + 2, 1, "error: " + str(contenr), format['format_purple'])
         total_sheet.write(idx_glob + 2, 0, sheet.get_name(), format['format_purple'])
@@ -116,5 +117,5 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-
+csv_total=return_csv_for_total(today.strftime("%b_%Y"))
 main_function()

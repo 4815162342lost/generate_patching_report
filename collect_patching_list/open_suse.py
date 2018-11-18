@@ -26,6 +26,7 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
     global need_patching
     global not_need_patching
     kernel_update = "no"
+    csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
     format_kernel = format['format_green']
     if need_reboot:
         reboot_require = "yes"
@@ -33,26 +34,32 @@ def write_to_file(sheet, idx_glob, contenr, need_reboot):
     else:
         reboot_require="no"
         format_reboot=format['format_green']
-    column0_width = 10
+    column_width=[]
+    try:
+        column_width.append(max(len(current_patch) for current_patch in contenr))
+    except ValueError:
+        column_width.append(20)
+    for i in range(1,3):
+        column_width.append(10)
     col=0
     for current_patch in contenr:
         if current_patch == 'Summary':
             continue
-        if len(current_patch)>column0_width:
-            column0_width=len(current_patch)
         if re.search('.*Linux Kernel', current_patch) != -1:
             kernel_update = 'yes'
             format_kernel = format['format_red']
         sheet.write(col + 2, 0, current_patch)
+        csv_writer.writerow((current_patch, "none", "none"))
         col+=1
     total_sheet.write(idx_glob + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx_glob + 2, 4, reboot_require, format_reboot)
-    sheet.set_column(0, 0, width=column0_width)
+    sheet.set_column(0, 0, width=column_width[0])
     if col>0:
         need_patching+=1; servers_for_patching.append(sheet.get_name())
     else:
         not_need_patching+=1
     write_to_total_sheet(col, "security ", sheet, total_sheet, format, idx_glob, 'open_suse')
+    write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, col, column_width)
 
 def main_function():
     error_count=0
@@ -106,5 +113,5 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-
+csv_total=return_csv_for_total(today.strftime("%b_%Y"))
 main_function()

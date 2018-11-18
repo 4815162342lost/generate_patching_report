@@ -4,11 +4,14 @@ import logging
 logging.getLogger(__name__)
 
 def get_settings():
+    '''read settings from settings.txt fil and return as dict'''
     settings={}
     exec(open('./settings.txt').read(), None, settings)
     return settings
 
+
 def parcer():
+    '''parse the arguments from command line options and return'''
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--email", type=str, required=False, help="Enter your e-mail")
@@ -23,11 +26,39 @@ def parcer():
 
 #python3 on Centos7 is so old...
 #def write_csv_total(csv_name, server_name, kernel_upgrade, reboot_required, counter, *column_width):
-def write_csv_total(csv_name, server_name, kernel_upgrade, reboot_required, counter, column_width):
-    total_txt_file=open(csv_name, 'a')
-    csv_writer=csv.writer(total_txt_file, delimiter=";")
+def write_csv_total(csv_writer, server_name, kernel_upgrade, reboot_required, counter, column_width):
+    '''write to total.csv file'''
     csv_writer.writerow((server_name, kernel_upgrade, reboot_required, counter, column_width[0], column_width[1], column_width[2]))
-    total_txt_file.close()
+
+
+def return_csv_for_total(month_year):
+    '''return total.csv file for current month'''
+    import os
+    #if total.csv does not exists
+    if not os.path.exists('./' + month_year + '_separate_csv_with_patching_list/total.csv'):
+        #try to create total.csv file
+        try:
+            total_csv_file=open('./' + month_year + '_separate_csv_with_patching_list/total.csv', 'a')
+        #create subdirectory if does not exists
+        except FileNotFoundError:
+            os.makedirs('./' + month_year + '_separate_csv_with_patching_list')
+            total_csv_file = open('./' + month_year + '_separate_csv_with_patching_list/total.csv', 'a')
+        print('./' + month_year + '_separate_csv_with_patching_list/ directory has been created!')
+        csv_writer_total=csv.writer(total_csv_file, delimiter=";")
+        csv_writer_total.writerow(("Server_name", "need_kernel_upgrade", "reboot_required", "updates_count", "column0_width", "column1_width", "column2_width"))
+    else:
+        print(month_year + '_separate_csv_with_patching_list/total.csv already exists, just append to file')
+        total_csv_file=open('./' + month_year + '_separate_csv_with_patching_list/total.csv', 'a')
+        csv_writer_total=csv.writer(total_csv_file, delimiter=";")
+    return csv_writer_total
+
+
+def return_csv_file_for_single_host(server_name, month_year):
+    '''return csv-object for single host'''
+    csv_file_for_server=open('./' + month_year + '_separate_csv_with_patching_list/' + server_name, 'w')
+    csv_writer=csv.writer(csv_file_for_server, delimiter=';')
+    csv_writer.writerow(("Package name", 'Current version', 'Available version'))
+    return csv_writer
 
 
 def perform_additional_actions(args, today, os, xlsx_name, settings, servers_for_patching):

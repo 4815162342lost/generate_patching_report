@@ -9,7 +9,6 @@ import termcolor
 import xlsxwriter
 import datetime
 import logging
-import csv
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -57,9 +56,7 @@ def write_to_file(contenr, sheet, idx_glob, counter):
     global servers_for_patching
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format['format_green']
-    csv_file_for_server=open('./rhel_based/' + sheet.get_name().lower(), 'w')
-    csv_writer=csv.writer(csv_file_for_server, delimiter=';')
-    csv_writer.writerow(("Package name", 'Current version', 'Available version'))
+    csv_writer=return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
     #write content to file
     for row, curren_patch in enumerate(contenr):
         sheet.write_row(row=row+2, col=0, data=curren_patch, cell_format=format['format_border'])
@@ -93,7 +90,7 @@ def write_to_file(contenr, sheet, idx_glob, counter):
         for i in range(3):
             column_width.append(0)
     write_to_total_sheet(counter, "security ", sheet, total_sheet, format, idx_glob, "rhel_oracle")
-    write_csv_total("./rhel_based/total.txt", sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
+    write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
 def find_error(ssh_connection, std_error, std_stdout, sheet, idx_glob):
     '''Function for find error from error_list variable, return True if error found'''
@@ -282,4 +279,5 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
+csv_total=return_csv_for_total(today.strftime("%b_%Y"))
 main()
