@@ -4,7 +4,8 @@
 3) Generate separate patching list for service owners
 4) Parallel the ssh-connection
 5) Fix bug when autonotification e-mail is not created for servers which not require MM
-
+6) Add parse-config option
+7) Add logrotate for scripts
 
 ### Solution for automatize several steps in patching process
 Hi, I am working as Linux engeneer and we have several hundred Linux-servers in our scope. We have a ugly patching process in our IT-infrastructure. And this scripts have been wrote for particilary automatize patching process. 
