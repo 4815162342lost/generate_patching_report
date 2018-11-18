@@ -1,3 +1,11 @@
+### TODO list
+1) Improve documentation
+2) Automatize Outlook-notification sending
+3) Generate separate patching list for service owners
+4) Parallel the ssh-connection
+5) Fix bug when autonotification e-mail is not created for servers which not require MM
+
+
 ### Solution for automatize several steps in patching process
 Hi, I am working as Linux engeneer and we have several hundred Linux-servers in our scope. We have a ugly patching process in our IT-infrastructure. And this scripts have been wrote for particilary automatize patching process. 
 Perhaps you will ask 'why your patching approach so strange?'. I can not answered for you, because we are working with ITIL and must follow strange and non-optimal processess. We can not influence to this process. Also our managers are terrible and do not have a it-knowledge and they are thinking that all fine... 
