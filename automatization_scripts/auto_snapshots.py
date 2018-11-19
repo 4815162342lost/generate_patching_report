@@ -141,11 +141,11 @@ def email_sending(results_dic):
     msg_a.attach(part2)
     msg['Subject'] = subject
     msg['From'] = settings['email_from']
-    msg['To'] = settings['e_mail_to_snapshots']
+    msg['To'] = settings['e_mail_to']
     try:
         logging.info("Connecting to smtp-server...")
         s = smtplib.SMTP(settings['smtp_server'])
-        s.sendmail(msg['From'], settings['e_mail_to_snapshots'], msg.as_string())
+        s.sendmail(msg['From'], settings['e_mail_to'], msg.as_string())
         s.quit()
     except Exception as e:
         logging.critical("Critical error during sending e-mail. Additional info: {debug}".format(debug=str(e)))
