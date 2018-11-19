@@ -2,12 +2,13 @@ from auto_mm import *
 from send_email import *
 import logging
 logging.getLogger(__name__)
+import configparser
 
 def get_settings():
-    '''read settings from settings.txt fil and return as dict'''
-    settings={}
-    exec(open('./settings.txt').read(), None, settings)
-    return settings
+    '''parse the config file'''
+    parse_conf=configparser.ConfigParser()
+    parse_conf.read("./settings.cfg")
+    return parse_conf['collect_patching_list']
 
 
 def parcer():
