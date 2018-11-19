@@ -12,6 +12,7 @@ import subprocess
 import json
 import logging
 import dateutil.tz
+import configparser
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
@@ -24,10 +25,10 @@ logging.info("==================================================================
 logging.info("Starting the script...")
 
 def get_settings():
-    '''Function for get settings from txt-file and return dictionary'''
-    settings={}
-    exec(open("./settings_email.txt").read(), None, settings)
-    return settings
+    '''parse the confi file'''
+    parse_conf=configparser.ConfigParser()
+    parse_conf.read("./settings.cfg")
+    return parse_conf['auto_snapshots']
 
 
 def get_bitcoin_price():
