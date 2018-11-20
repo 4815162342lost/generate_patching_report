@@ -14,7 +14,14 @@ sys.path.append('./modules/')
 from create_excel_template import *
 import csv
 import datetime
-import io
+import configparser
+
+def get_settings():
+    '''parse the config file'''
+    parse_conf=configparser.ConfigParser()
+    parse_conf.read("./settings.cfg")
+    return parse_conf['auto_e_mail_separate_to_so_with_pacthing_list']
+
 
 def return_server_groups(server_list):
     '''return the dict which contain service owner and servers'''
@@ -121,10 +128,10 @@ def send_email_with_xlsx_to_customer(group_of_servers):
     msg['Subject'] = "[TEST MESSAGE, PLEASE IGNORE] Upcomming Linux patching -- {month}, list of updates".format(month=today.strftime("%B"))
     msg['From'] = settings['email_from']
     msg['To'] = ','.join(e_mails)
-    msg['Cc'] = settings['e_mail_cc_before_4_days']
+    msg['Cc'] = settings['e_mail_cc']
     try:
         s = smtplib.SMTP(settings['smtp_server'])
-        s.sendmail(msg['From'], msg['To'].split(',') + settings['e_mail_cc_before_4_days'].split(','), msg.as_string())
+        s.sendmail(msg['From'], msg['To'].split(',') + settings['e_mail_cc'].split(','), msg.as_string())
         s.quit()
         print('e_mail was sent correctly')
     except Exception as e:
@@ -136,7 +143,7 @@ def main():
     '''main function'''
     #get the list of files in directory
     servers_list=os.listdir("./")
-    servers_list.remove('total.txt')
+    servers_list.remove('total.csv')
     #get the unique so with affected servers as dict, see example in function description
     uniq_so_group_with_servers=return_server_groups(servers_list)
     #generate xlsx-file for each new group
@@ -146,11 +153,10 @@ def main():
 
 
 db_cur=sqlite3.connect('./patching_dev.db').cursor()
-settings = {}
-exec(open('./settings_email.txt').read(), None, settings)
-os.chdir(os.path.dirname(os.path.realpath(__file__))+'/rhel_based/')
-csv_file=open("./total.txt", 'r')
-csv_reader=csv.reader(csv_file, delimiter=';')
+settings = get_settings()
 today=datetime.datetime.now()
+os.chdir(os.path.dirname(os.path.realpath(__file__)) + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
+csv_file=open("./total.csv", 'r')
+csv_reader=csv.reader(csv_file, delimiter=';')
 
 main()
