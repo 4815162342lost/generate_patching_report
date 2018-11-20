@@ -78,7 +78,7 @@ def extract_needed_servers():
     logging.info("Working with following csv-files: {csv}".format(csv=str(csv_files)))
     for csv_file_for_open in csv_files:
         csv_file = open(csv_file_for_open)
-        min_start_time = datetime.datetime.now() + datetime.timedelta(minutes=1)
+        min_start_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
         max_start_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
         patching_schedule_csv = csv.reader(csv_file, delimiter=';')
         for row in patching_schedule_csv:
