@@ -13,6 +13,7 @@ import sys
 import os
 from distutils.sysconfig import get_python_lib
 import logging
+import configparser
 
 logging.basicConfig(filename="/var/log/patching/patching_auto_email.log", filemode="a", format="%(asctime)s %(message)s", datefmt="%d/%m/%Y %H:%M:%S", level=logging.INFO)
 logging.info("==================================================================")
@@ -21,11 +22,13 @@ logging.info("Starting the script...")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
 
+
 def get_settings():
-    '''Function for get settings from txt-file and return dictionary'''
-    settings={}
-    exec(open("./settings_email.txt").read(), None, settings)
-    return settings
+    '''parse the config file'''
+    parse_conf=configparser.ConfigParser()
+    parse_conf.read("./settings.cfg")
+    return parse_conf['auto_e_mail_notifications']
+
 
 def extract_needed_servers():
     '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
