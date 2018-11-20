@@ -13,6 +13,7 @@ import os
 from distutils.sysconfig import get_python_lib
 from operator import itemgetter
 import logging
+import parse_conf
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
@@ -21,10 +22,10 @@ logging.basicConfig(filename="/var/log/patching/patching_auto_email_before_4_day
 logging.info("Starting the script...")
 
 def get_settings():
-    '''Function for get settings from txt-file and return dictionary'''
-    settings={}
-    exec(open("./settings_email.txt").read(), None, settings)
-    return settings
+    '''parse the config file'''
+    parse_conf=configparser.ConfigParser()
+    parse_conf.read("./settings.cfg")
+    return parse_conf['auto_e_mail_notification_before_4_days']
 
 def extract_needed_servers():
     '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
@@ -102,11 +103,11 @@ def email_sending(server_so_email):
     msg['Subject'] = subject
     msg['From'] = settings['email_from']
     msg['To'] = ",".join(e_mails)
-    msg['Cc'] = settings['e_mail_cc_before_4_days']
+    msg['Cc'] = settings['e_mail_cc']
     try:
         logging.info("Connecting to {smtp} smtp-server...".format(smtp=settings["smtp_server"]))
         s = smtplib.SMTP(settings['smtp_server'])
-        s.sendmail(msg['From'], e_mails + settings['e_mail_cc_before_4_days'].split(','), msg.as_string())
+        s.sendmail(msg['From'], e_mails + settings['e_mail_cc'].split(','), msg.as_string())
         s.quit()
         logging.info("E-mail has been sent successfully!")
     except Exception as e:
