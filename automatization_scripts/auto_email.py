@@ -134,11 +134,11 @@ def email_sending(servers_for_sending_emails, params):
     msg['Subject'] = subject
     msg['From'] = settings["email_from"]
     msg['To'] = e_mails
-    msg['Cc'] = settings["e_mails_cc"]
+    msg['Cc'] = settings["e_mail_cc"]
     try:
         logging.info("Connecting to {smtp} smtp-server...".format(smtp=settings["smtp_server"]))
         s = smtplib.SMTP(settings["smtp_server"])
-        s.sendmail(msg['From'], e_mails.split(',') + settings["e_mails_cc"].split(','), msg.as_string())
+        s.sendmail(msg['From'], e_mails.split(',') + settings["e_mail_cc"].split(','), msg.as_string())
         s.quit()
         logging.info("E-mail has been sent successfully!")
     except Exception as e:
