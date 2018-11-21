@@ -31,10 +31,13 @@ def return_server_groups(server_list):
                           INNER JOIN SERVERS ON SERVER_OWNERS_EMAILS.PROJECT_NAME=SERVERS.PROJECT\
                           WHERE SERVERS.SERVER_NAME=:server_name COLLATE NOCASE", {'server_name' : current_server}).fetchone()
         #if new key -- create them, if old -- only append new value
-        if so[0] not in server_groups:
-            server_groups[so[0]]=[current_server]
-        else:
-            server_groups[so[0]].append(current_server)
+        try:
+            if so[0] not in server_groups:
+                server_groups[so[0]]=[current_server]
+            else:
+                server_groups[so[0]].append(current_server)
+        except TypeError:
+            termcolor.cprint("Error: {server} server is not found on local database, ignoring...".format(server=current_server), color="white", on_color="on_red" )
     #example: {'Faith Connor,Zoey Coatcher': ['cent_os', 'secret_server'], 'Lous Coatcher,Our_team': ['server22']}
     return server_groups
 
@@ -43,6 +46,8 @@ def prepare_xlsx_file(servers):
     #change the position in file to beginning
     csv_file.seek(0)
     #create xsls-file, total_sheet and get formats
+    servers_which_not_find_in_total_csv_file=0
+    termcolor.cprint("Working with {servers} servers(s)...".format(servers=servers), color="white", on_color="on_green")
     xlsx_file=xlsxwriter.Workbook('/tmp/patching_list.xlsx')
     format = create_formats(xlsx_file)
     total_sheet=xlsx_file.add_worksheet("Total")
@@ -58,6 +63,10 @@ def prepare_xlsx_file(servers):
                 patches_str=row;
                 break
         #write the patches to xlsx-sheet and set width
+        if 'patches_str' not in locals():
+            termcolor.cprint('Can not find the {server} server in total.csv file. Skipping...'.format(server=current_server), color="white", on_color="on_red")
+            servers_which_not_find_in_total_csv_file+=1
+            continue
         if int(patches_str[3])!=0:
             server_sheet.write(0,0, "{count} packages will be updated".format(count=patches_str[3]), format['format_bold'])
             server_sheet.write_row(1, 0, next(server_file_csv)[0:3], cell_format=format['format_bold'])
@@ -80,16 +89,23 @@ def prepare_xlsx_file(servers):
         for i in range(0,4):
             total_sheet.set_column(i,i,col_width[i])
     xlsx_file.close()
+    #if all servers from function input is not exists in total.csv file -- not need to send xlsx-file to customer
+    if servers_which_not_find_in_total_csv_file!=len(servers):
+        return 0
+    else:
+        return 1
+
+
 
 def send_email_with_xlsx_to_customer(group_of_servers):
+    print(group_of_servers)
+    return 0
     names=group_of_servers.split(',')
     final_names=[n.split(' ')[0] for n in names]
     if len(final_names)>1:
         final_names=', '.join(final_names[:-1]) + " and " + final_names[-1]
     else:
         final_names=final_names[0]
-    print(final_names)
-    return 0
     e_mails=db_cur.execute("SELECT CONTACT_EMAILS FROM SERVER_OWNERS_EMAILS WHERE SERVICE_OWNERS=:group_of_servers", {'group_of_servers' : group_of_servers}).fetchone()
     mail_body="<html><head></head><body>\
     <p><font color=f02a00>This is a test message, not real, please, ignore. I am only need a real e-mails for perform several tests with new script</font></p>\
@@ -149,16 +165,27 @@ def main():
     uniq_so_group_with_servers=return_server_groups(servers_list)
     #generate xlsx-file for each new group
     for current_group_of_project, current_uniq_so_group_servers in uniq_so_group_with_servers.items():
-        prepare_xlsx_file(current_uniq_so_group_servers)
-        send_email_with_xlsx_to_customer(current_group_of_project)
+        #print if need send e-mail with xlsx-file
+        if prepare_xlsx_file(current_uniq_so_group_servers)==0:
+            send_email_with_xlsx_to_customer(current_group_of_project)
+        else:
+            termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=current_uniq_so_group_servers), color="white", on_color="on_red")
 
 
 db_cur=sqlite3.connect('./patching_dev.db').cursor()
 settings = get_settings()
-
 today=datetime.datetime.now()
-os.chdir(os.path.dirname(os.path.realpath(__file__)) + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
-csv_file=open("./total.csv", 'r')
+
+try:
+    os.chdir(os.path.dirname(os.path.realpath(__file__)) + '/' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
+except FileNotFoundError:
+    print('./' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/ directory is not found, can not proceed, exiting...' )
+    exit()
+try:
+    csv_file=open("./total.csv", 'r')
+except FileNotFoundError:
+    print("Common total.csv file is not found. Exiting, can not proceed...")
+    exit()
 csv_reader=csv.reader(csv_file, delimiter=';')
 
 main()
