@@ -83,7 +83,7 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     if counter > 0:
         column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
         max_t = max(len(str(value)) for value in content_updates_pkgs.values())
-        for i in range(1,3)
+        for i in range(1,3):
             column_width.append(max_t)
         need_patching += 1;
         for c in range(3):
