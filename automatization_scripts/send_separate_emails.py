@@ -129,6 +129,7 @@ def send_email_with_xlsx_to_customer(group_of_servers):
     msg['From'] = settings['email_from']
     msg['To'] = ','.join(e_mails)
     msg['Cc'] = settings['e_mail_cc']
+    return 0
     try:
         s = smtplib.SMTP(settings['smtp_server'])
         s.sendmail(msg['From'], msg['To'].split(',') + settings['e_mail_cc'].split(','), msg.as_string())
@@ -154,6 +155,7 @@ def main():
 
 db_cur=sqlite3.connect('./patching_dev.db').cursor()
 settings = get_settings()
+
 today=datetime.datetime.now()
 os.chdir(os.path.dirname(os.path.realpath(__file__)) + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
 csv_file=open("./total.csv", 'r')
