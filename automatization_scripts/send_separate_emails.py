@@ -15,6 +15,8 @@ from create_excel_template import *
 import csv
 import datetime
 import configparser
+import logging
+
 
 def get_settings():
     '''parse the config file'''
@@ -24,22 +26,23 @@ def get_settings():
 
 
 def return_server_groups(server_list):
-    '''return the dict which contain service owner and servers'''
+    '''return the dict which contain service owner e-mails  and servers'''
     server_groups={}
     for current_server in server_list:
-        so=db_cur.execute("SELECT SERVER_OWNERS_EMAILS.SERVICE_OWNERS FROM SERVER_OWNERS_EMAILS\
+        so_email=db_cur.execute("SELECT SERVER_OWNERS_EMAILS.CONTACT_EMAILS FROM SERVER_OWNERS_EMAILS\
                           INNER JOIN SERVERS ON SERVER_OWNERS_EMAILS.PROJECT_NAME=SERVERS.PROJECT\
                           WHERE SERVERS.SERVER_NAME=:server_name COLLATE NOCASE", {'server_name' : current_server}).fetchone()
         #if new key -- create them, if old -- only append new value
         try:
-            if so[0] not in server_groups:
-                server_groups[so[0]]=[current_server]
+            if so_email[0] not in server_groups:
+                server_groups[so_email[0]]=[current_server]
             else:
-                server_groups[so[0]].append(current_server)
+                server_groups[so_email[0]].append(current_server)
         except TypeError:
             termcolor.cprint("Error: {server} server is not found on local database, ignoring...".format(server=current_server), color="white", on_color="on_red" )
-    #example: {'Faith Connor,Zoey Coatcher': ['cent_os', 'secret_server'], 'Lous Coatcher,Our_team': ['server22']}
+    #example: {'Faith.Connor@my_retard.com,Zoey.Coatcher@my_retard.com': ['cent_os', 'secret_server'], 'Lous.Coatcher@myretard.com,Our_team@my_retard.com': ['server22']}
     return server_groups
+
 
 def prepare_xlsx_file(servers):
     '''Function for generate xlsx-files and write them to /tmp/ directory, servers -- list of servers'''
@@ -98,7 +101,7 @@ def prepare_xlsx_file(servers):
 
 
 def send_email_with_xlsx_to_customer(group_of_servers):
-    print(group_of_servers)
+    '''group_of_servers -- service owners (only names)'''
     return 0
     names=group_of_servers.split(',')
     final_names=[n.split(' ')[0] for n in names]
@@ -162,14 +165,14 @@ def main():
     servers_list=os.listdir("./")
     servers_list.remove('total.csv')
     #get the unique so with affected servers as dict, see example in function description
-    uniq_so_group_with_servers=return_server_groups(servers_list)
+    uniq_so_e_mails_group_with_servers=return_server_groups(servers_list)
     #generate xlsx-file for each new group
-    for current_group_of_project, current_uniq_so_group_servers in uniq_so_group_with_servers.items():
+    for current_group_of_project, current_uniq_so_e_mails_group_servers in uniq_so_e_mails_group_with_servers.items():
         #print if need send e-mail with xlsx-file
-        if prepare_xlsx_file(current_uniq_so_group_servers)==0:
+        if prepare_xlsx_file(current_uniq_so_e_mails_group_servers)==0:
             send_email_with_xlsx_to_customer(current_group_of_project)
         else:
-            termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=current_uniq_so_group_servers), color="white", on_color="on_red")
+            termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=current_uniq_so_e_mails_group_servers), color="white", on_color="on_red")
 
 
 db_cur=sqlite3.connect('./patching_dev.db').cursor()
@@ -179,12 +182,12 @@ today=datetime.datetime.now()
 try:
     os.chdir(os.path.dirname(os.path.realpath(__file__)) + '/' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
 except FileNotFoundError:
-    print('./' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/ directory is not found, can not proceed, exiting...' )
+    termcolor.cprint('./' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/ directory is not found, can not proceed, exiting...', color="white", on_color="on_red")
     exit()
 try:
     csv_file=open("./total.csv", 'r')
 except FileNotFoundError:
-    print("Common total.csv file is not found. Exiting, can not proceed...")
+    termcolor.cprint("Common total.csv file is not found. Exiting, can not proceed...", color="white", on_color="on_red")
     exit()
 csv_reader=csv.reader(csv_file, delimiter=';')
 
