@@ -108,7 +108,7 @@ def main_function():
 
 
 termcolor.cprint("                                                   ' \/ '\n   _  _                        &lt;|\n    \/              __'__     __'__      __'__\n                   /    /    /    /     /    / \n                  /\____\    \____\     \____\               _  _\n                 / ___!___   ___!___    ___!___               \/ \n               // (      (  (      (   (      (\n             / /   \______\  \______\   \______\ \n           /  /   ____!_____ ___!______ ____!_____\n         /   /   /         //         //         / \n      /    /   |         ||         ||         |\n     /_____/     \         \\         \\         \ \n           \      \_________\\_________\\_________\ \n            \         |          |         |\n             \________!__________!_________!________/\n              \|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_/|\n               \    _______________                / \n^^^%%%^%^^^%^%%^\_\"/_)/_)_/_)__)/_)/)/)_)_\"_'_\"_//)/)/)/)%%%^^^%^^%%%%^\n^!!^^\"!%%!^^^!^^^!!^^^%%%%%!!!!^^^%%^^^!!%%%%^^^!!!!!!%%%^^^^%^^%%%^^^!", color='red', on_color='on_white')
-xlsx_name = 'Liniux_list_of_updates_' + str(today.strftime("%B %Y")) + "_Open_Suse.xlsx"
+xlsx_name = 'Linux_list_of_updates_' + str(today.strftime("%B %Y")) + "_Open_Suse.xlsx"
 xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
