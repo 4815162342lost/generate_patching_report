@@ -12,11 +12,11 @@ import termcolor
 import sys
 sys.path.append('./modules/')
 from create_excel_template import *
+from auto_mm import get_patching_start_date
 import csv
 import datetime
 import configparser
 import logging
-import random
 
 
 log_file=logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__))+ '/send_separate_emails_error.log', level=logging.INFO,  datefmt="%d/%m%Y %H:%M:%S", format="%(asctime)s %(message)s")
@@ -29,7 +29,7 @@ def get_settings():
 
 
 def return_server_groups(server_list):
-    '''return the dict which contain service owner e-mails  and servers'''
+    '''return the dict which contain service owner e-mails and servers'''
     server_groups={}
     for current_server in server_list:
         so_email=db_cur.execute("SELECT SERVER_OWNERS_EMAILS.CONTACT_EMAILS FROM SERVER_OWNERS_EMAILS\
@@ -60,6 +60,8 @@ def prepare_xlsx_file(servers):
     total_sheet=xlsx_file.add_worksheet("Total")
     total_sheet.set_tab_color(color="yellow")
     total_sheet.write_row(row=0, col=0,data=("Server name", "Conclusion", "Kernel upgrade", "Reboot required"), cell_format=format['format_bold'])
+    table="<table border='1'><tr><td>Server name</td><td>Patching start date</td><td>Patching start time</td><td>Patching time zone</td></tr>"
+
     for idx, current_server in enumerate(servers):
         #crete sheet with server name and open txt-file with server
         server_sheet=xlsx_file.add_worksheet(current_server.upper())
@@ -69,51 +71,70 @@ def prepare_xlsx_file(servers):
             if row[0]==current_server:
                 patches_str=row;
                 break
-        #write the patches to xlsx-sheet and set width
+        #if server is not found in total.csv file
         if 'patches_str' not in locals():
             termcolor.cprint('Can not find the {server} server in total.csv file. Skipping...'.format(server=current_server), color="white", on_color="on_red")
             logging.warning('Can not find the {server} server in total.csv file. Skipping...'.format(server=current_server))
             servers_which_not_find_in_total_csv_file+=1
             continue
+        #if server should be patched
         if int(patches_str[3])!=0:
+            patching_code, start_time, time_zone =db_cur.execute("SELECT WINDOW_CODE, START_TIME, TIMEZONE FROM SERVERS WHERE SERVER_NAME=:server_name COLLATE NOCASE", {'server_name': current_server}).fetchone()
+            start_date = get_patching_start_date(today, patching_code, db_cur).strftime("%d/%m/%Y")
+            table += "<tr><td>{server_name}</td><td>{start_date}</td><td>{start_time}</td><td>{time_zone}</td></tr>".format(server_name=current_server.upper(), start_date=start_date, start_time=start_time, time_zone=time_zone)
             suse=False
             server_sheet.write(0,0, "{count} packages will be updated".format(count=patches_str[3]), format['format_bold'])
             server_sheet.write_row(1, 0, next(server_file_csv)[0:3], cell_format=format['format_bold'])
             for idx1, current_patch in enumerate(server_file_csv):
+                # my script can not extract installed and availble version for Suse Linux. Need avoid 'none' entries in 'current version' and 'available version'
+                #cxv example for suse Linux, we see 'none'
+                #Package name;Current version;Available version
+                #Security update for Mozilla Firefox and NSS;none;none
+                #Security update for java-1_8_0-openjdk;none;none
                 if idx1==0 and current_patch[1]=='none':
                     suse=True
                     server_sheet.write(1, 0, 'Update description', format['format_bold'])
+                    #remove 'current version' and 'available version from Excel file'
                     for i in range(1,3):
                         server_sheet.write(1, i, ' ')
+                    continue
+                #if not suse write patch name, current and available versions, else -- write only update dscription
                 if not suse:
                     server_sheet.write_row(idx1+2, 0, current_patch, cell_format=format['format_border'])
                 else:
                     server_sheet.write(idx1 + 2, 0, current_patch[0], format['format_border'])
+            #set width for column
             for current_width in range(4, 7):
                 server_sheet.set_column(current_width - 4, current_width - 4, width=int(patches_str[current_width]))
             server_sheet.set_tab_color(color="red")
+            #write to tatoal sheet
             total_sheet.write_row(row=idx+1, col=0,data=(current_server.upper(), "{count} packages need to update".format(count=patches_str[3]), patches_str[1], patches_str[2]), cell_format=format['format_red'])
             total_sheet.write_url(row=idx + 1, col=0, url="internal:'{sheet_name}'!A1".format(sheet_name=current_server.upper()),cell_format=format['format_red_url'], string=current_server.upper())
+        #if not patches
         else:
+            #add server to html_tabe
+            table+="<tr><td>{server_name}</td><td>none</td><td>none</td><td>none</td></tr>".format(server_name=current_server.upper())
             server_sheet.write(0, 0, "Upgrade is not needed", format['format_bold'])
             server_sheet.set_column(0, 0, 20)
             server_sheet.set_tab_color(color="green")
             total_sheet.write_row(row=idx + 1, col=0, data=(current_server.upper(), "Upgade is not needed", patches_str[1],patches_str[2]), cell_format=format['format_green'])
             total_sheet.write_url(row=idx + 1, col=0,url="internal:'{sheet_name}'!A1".format(sheet_name=current_server.upper()), cell_format=format['format_green_url'], string=current_server.upper())
+        #set the colors for 'yes\no' cells. Yes, i know, ugly and hard, but funny and works
         total_sheet.conditional_format(first_row=idx + 1, first_col=2, last_row=idx + 1, last_col=3, options={'type': 'text', 'criteria': 'containing', 'value': 'yes', 'format': format['format_red']})
         total_sheet.conditional_format(first_row=idx + 1, first_col=2, last_row=idx + 1, last_col=3, options={'type': 'text', 'criteria': 'containing', 'value': 'no', 'format': format['format_green']})
         col_width=(20,34,14,14)
         for i in range(0,4):
             total_sheet.set_column(i,i,col_width[i])
     xlsx_file.close()
+    table+="</table>"
     #if all servers from function input is not exists in total.csv file -- not need to send xlsx-file to customer
     if servers_which_not_find_in_total_csv_file!=len(servers):
-        return 0
+        return table
     else:
         return 1
 
 
-def send_email_with_xlsx_to_customer(group_of_e_mails):
+def send_email_with_xlsx_to_customer(group_of_e_mails, table):
     '''group_of_e_mails -- e-mails of service owners (only emails)'''
     names = db_cur.execute("SELECT SERVICE_OWNERS FROM SERVER_OWNERS_EMAILS WHERE CONTACT_EMAILS=:e_mails LIMIT 1",{'e_mails': group_of_e_mails}).fetchone()[0].split(",")
     final_names=[n.split(' ')[0] for n in names]
@@ -121,7 +142,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails):
         final_names=', '.join(final_names[:-1]) + " and " + final_names[-1]
     else:
         final_names=final_names[0]
-    mail_body="<html><head></head><body>\
+    mail_body="<html><head><meta charset='UTF-8'></head><body>\
     <p><font color=f02a00>This is a test messages, not real, please, ignore. I am only need a real e-mails for perform several tests with new script</font></p>\
     <p>Hello {names},</p>\
     \
@@ -129,10 +150,21 @@ def send_email_with_xlsx_to_customer(group_of_e_mails):
     In attached Excel-file you can find servers with available patches.</p>\
     \
     <p><b><u>Please, note:</b></u><br>\
-    Тут будет какой-то очень важный и нужный текст, который ещё не придуман\
-    <br>\
-    <p>Please, reply to this e-mail if you have any concerns or questions.</p>\
-    {sign}</body></html>".format(names=final_names, sign=settings["sign"])
+    Тут будет какой-то очень важный и интересный текст, который ещё не придуман.\
+    <br>Благодаря которому мы будем получать ещё больше ненужных и странных вопросов перед патчингом\
+    и тратить своё время на дполнительную коммуникацию.\
+    <br>А потом в конце цикла могут возникнуть вопросы, почему патчей установитлось больше, чем было в этом репорте,\
+    ведь у нас нет фриза обновлений (репозиторий) для Linux-патчинга, но мы, отправив репорты индиыидуально, сделали акцент на списке патчей.\
+    <br>А в этом репорте нет никакого смысла.\
+    <p>\
+    <b><u>Also please, look to patching scheule for your servers:</u></b>\
+    {table}</p>\
+    <br>Please, reply to this e-mail if you have any concerns or questions.\
+    {sign}</body></html>".format(names=final_names, sign=settings["sign"], table=table)
+
+    print(mail_body)
+    return 0
+
     msg = MIMEMultipart('related')
     msg_a = MIMEMultipart('alternative')
     msg.attach(msg_a)
@@ -181,8 +213,9 @@ def main():
     #generate xlsx-file for each new group
     for e_mails, servers in uniq_so_e_mails_group_with_servers.items():
         #print if need send e-mail with xlsx-file
-        if prepare_xlsx_file(servers)==0:
-            send_email_with_xlsx_to_customer(e_mails)
+        table=prepare_xlsx_file(servers)
+        if table!=1:
+            send_email_with_xlsx_to_customer(e_mails, table)
         else:
             termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=servers), color="white", on_color="on_red")
             logging.warning("Error: e-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer...".format(current_uniq_so_group_servers=servers))
