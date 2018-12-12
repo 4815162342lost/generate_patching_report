@@ -50,8 +50,6 @@ def return_server_groups(server_list):
 
 def prepare_xlsx_file(servers):
     '''Function for generate xlsx-files and write them to /tmp/ directory, servers -- list of servers'''
-    #change the position in file to beginning
-    csv_file.seek(0)
     #create xsls-file, total_sheet and get formats
     servers_which_not_find_in_total_csv_file=0
     termcolor.cprint("Working with {servers} servers(s)...".format(servers=servers), color="white", on_color="on_green")
@@ -63,6 +61,8 @@ def prepare_xlsx_file(servers):
     table="<table border='1'><tr><td>Server name</td><td>Patching start date</td><td>Patching start time</td><td>Patching time zone</td></tr>"
 
     for idx, current_server in enumerate(servers):
+        # change the position in file to beginning
+        csv_file.seek(0)
         #crete sheet with server name and open txt-file with server
         server_sheet=xlsx_file.add_worksheet(current_server.upper())
         server_file_csv=csv.reader(open(current_server.lower(), 'r'), delimiter=';')
@@ -81,7 +81,7 @@ def prepare_xlsx_file(servers):
         if int(patches_str[3])!=0:
             patching_code, start_time, time_zone =db_cur.execute("SELECT WINDOW_CODE, START_TIME, TIMEZONE FROM SERVERS WHERE SERVER_NAME=:server_name COLLATE NOCASE", {'server_name': current_server}).fetchone()
             start_date = get_patching_start_date(today, patching_code, db_cur).strftime("%d/%m/%Y")
-            table += "<tr><td>{server_name}</td><td>{start_date}</td><td>{start_time}</td><td>{time_zone}</td></tr>".format(server_name=current_server.upper(), start_date=start_date, start_time=start_time, time_zone=time_zone)
+            table += "<tr><td>{server_name}</td><td>{start_date}</td><td>{start_time}</td><td>{time_zone}</td></tr>\n".format(server_name=current_server.upper(), start_date=start_date, start_time=start_time, time_zone=time_zone)
             suse=False
             server_sheet.write(0,0, "{count} packages will be updated".format(count=patches_str[3]), format['format_bold'])
             server_sheet.write_row(1, 0, next(server_file_csv)[0:3], cell_format=format['format_bold'])
@@ -97,10 +97,9 @@ def prepare_xlsx_file(servers):
                     #remove 'current version' and 'available version from Excel file'
                     for i in range(1,3):
                         server_sheet.write(1, i, ' ')
-                    continue
                 #if not suse write patch name, current and available versions, else -- write only update dscription
                 if not suse:
-                    server_sheet.write_row(idx1+2, 0, current_patch, cell_format=format['format_border'])
+                    server_sheet.write_row(idx1 + 2, 0, current_patch, cell_format=format['format_border'])
                 else:
                     server_sheet.write(idx1 + 2, 0, current_patch[0], format['format_border'])
             #set width for column
@@ -113,7 +112,7 @@ def prepare_xlsx_file(servers):
         #if not patches
         else:
             #add server to html_tabe
-            table+="<tr><td>{server_name}</td><td>none</td><td>none</td><td>none</td></tr>".format(server_name=current_server.upper())
+            table+="<tr><td>{server_name}</td><td>No updates available</td><td>none</td><td>none</td></tr>".format(server_name=current_server.upper())
             server_sheet.write(0, 0, "Upgrade is not needed", format['format_bold'])
             server_sheet.set_column(0, 0, 20)
             server_sheet.set_tab_color(color="green")
@@ -143,28 +142,13 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
     else:
         final_names=final_names[0]
     mail_body="<html><head><meta charset='UTF-8'></head><body>\
-    <p><font color=f02a00>This is a test messages, not real, please, ignore. I am only need a real e-mails for perform several tests with new script</font></p>\
-    <p>Hello {names},</p>\
-    \
-    <p>This is an e-mail with list of updates for future monthly Linux patching cycle. \
-    In attached Excel-file you can find servers with available patches.</p>\
-    \
-    <p><b><u>Please, note:</b></u><br>\
-    Тут будет какой-то очень важный и интересный текст, который ещё не придуман.\
-    <br>Благодаря которому мы будем получать ещё больше ненужных и странных вопросов перед патчингом\
-    и тратить своё время на дполнительную коммуникацию.\
-    <br>А потом в конце цикла могут возникнуть вопросы, почему патчей установитлось больше, чем было в этом репорте,\
-    ведь у нас нет фриза обновлений (репозиторий) для Linux-патчинга, но мы, отправив репорты индиыидуально, сделали акцент на списке патчей.\
-    <br>А в этом репорте нет никакого смысла.\
-    <p>\
-    <b><u>Also please, look to patching scheule for your servers:</u></b>\
-    {table}</p>\
-    <br>Please, reply to this e-mail if you have any concerns or questions.\
-    {sign}</body></html>".format(names=final_names, sign=settings["sign"], table=table)
-
-    print(mail_body)
-    return 0
-
+    <p>Dear {names},</p>\
+    Please see below the list of the Linux servers under your responsibility, with the exact patching schedule for each of them.\
+    <br>The list of updates is attached to this email.\
+    <p>{table}</p>\
+    <br>In case any clarifications or schedule corrections are required, please <b>REPLY ALL.</b>\
+    <br>If you start experiencing any service degradation or performance issues after the patching date, please inform us by creating an Incident for <b>{itsm_group}</b> group.\
+    {sign}</body></html>".format(names=final_names, sign=settings["sign"], table=table, itsm_group=settings['itsm_group'])
     msg = MIMEMultipart('related')
     msg_a = MIMEMultipart('alternative')
     msg.attach(msg_a)
@@ -183,7 +167,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
     logo.close()
     part4.add_header('Content-ID', '<logo>')
     msg.attach(part4)
-    msg['Subject'] = "[ONE MORE TEST ROUND, PLEASE IGNORE] Upcomming Linux patching -- {month}, list of updates".format(month=today.strftime("%B"))
+    msg['Subject'] = "Upcomming monthly Linux patching -- {month}, list of updates".format(month=today.strftime("%B"))
     msg['From'] = settings['email_from']
     msg['To'] = group_of_e_mails
     msg['Cc'] = settings['e_mail_cc']
@@ -202,6 +186,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
         except Exception as e:
             termcolor.cprint('Error occured during sendig e-mail again... Skipping this message.  Exception: {ex} '.format(ex=str(e)), color='red', on_color='on_white')
             logging.warning("Can not send the e-mail to {e_mails}".format(e_mails=msg['To']))
+    input("Please, enter any symbol to proceed...")
 
 def main():
     '''main function'''
@@ -236,5 +221,4 @@ except FileNotFoundError:
     termcolor.cprint("Common total.csv file is not found. Exiting, can not proceed...", color="white", on_color="on_red")
     exit()
 csv_reader=csv.reader(csv_file, delimiter=';')
-
 main()
