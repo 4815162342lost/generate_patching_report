@@ -128,7 +128,7 @@ def email_sending(results_dic):
     mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date} CET<br><b>BTC price: </b>{btc}<br> <b>ETH price: </b>{eth}<br> <b>ZEC price: </b>{zec}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price(), eth=eth, zec=zec)
     mail_body+="<table border='1'><tr><td>Server name</td><td>Created date</td></tr>"
     for current_result in results_dic.keys():
-        mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>".format(server_name=current_result.upper(), additional_info=results_dic[current_result])
+        mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>\n".format(server_name=current_result.upper(), additional_info=results_dic[current_result])
     mail_body+="</table>{sign}</body></html>".format(sign=sign)
     subject = '[Snapshots] RFC {rfc_number}: monthly Linux-patching'.format(rfc_number=rfc_number)
     msg = MIMEMultipart('related')
