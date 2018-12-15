@@ -112,7 +112,7 @@ def prepare_xlsx_file(servers):
         #if not patches
         else:
             #add server to html_tabe
-            table+="<tr><td>{server_name}</td><td>No updates available</td><td>none</td><td>none</td></tr>".format(server_name=current_server.upper())
+            table+="<tr><td>{server_name}</td><td>No updates available</td><td> </td><td> </td></tr>".format(server_name=current_server.upper())
             server_sheet.write(0, 0, "Upgrade is not needed", format['format_bold'])
             server_sheet.set_column(0, 0, 20)
             server_sheet.set_tab_color(color="green")
@@ -147,7 +147,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
     <br>The list of updates is attached to this email.\
     <p>{table}</p>\
     <br>In case any clarifications or schedule corrections are required, please <b>REPLY ALL.</b>\
-    <br>If you start experiencing any service degradation or performance issues after the patching date, please inform us by creating an Incident for <b>{itsm_group}</b> group.\
+    <br>If you start experiencing any issues after the patching date, please create an incident for <b>{itsm_group}</b> group.\
     {sign}</body></html>".format(names=final_names, sign=settings["sign"], table=table, itsm_group=settings['itsm_group'])
     msg = MIMEMultipart('related')
     msg_a = MIMEMultipart('alternative')
@@ -167,7 +167,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
     logo.close()
     part4.add_header('Content-ID', '<logo>')
     msg.attach(part4)
-    msg['Subject'] = "Upcomming monthly Linux patching -- {month}, list of updates".format(month=today.strftime("%B"))
+    msg['Subject'] = "Upcoming Linux patching -- {month} | RFC {rfc_number}".format(month=today.strftime("%B"), rfc_number=rfc_number)
     msg['From'] = settings['email_from']
     msg['To'] = group_of_e_mails
     msg['Cc'] = settings['e_mail_cc']
@@ -205,11 +205,44 @@ def main():
             termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=servers), color="white", on_color="on_red")
             logging.warning("Error: e-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer...".format(current_uniq_so_group_servers=servers))
 
-db_cur=sqlite3.connect('./patching_dev.db').cursor()
+db_cur=sqlite3.connect('./patching.db').cursor()
 settings = get_settings()
 today=datetime.datetime.now()
 
-termcolor.cprint('\n                    ,\n                   dM\n                   MMr\n                  4MMML                  .\n                  MMMMM.                xf\n  .              "M6MMM               .MM-\n   Mh..          +MM5MMM            .MMMM\n   .MMM.         .MMMMML.          MMMMMh\n    )MMMh.        MM5MMM         MMMMMMM\n     3MMMMx.     \'MMM3MMf      xnMMMMMM"\n     \'*MMMMM      MMMMMM.     nMMMMMMP\"\n       *MMMMMx    \"MMM5M\    .MMMMMMM=\n        *MMMMMh   \"MMMMM\"   JMMMMMMP\n          MMMMMM   GMMMM.  dMMMMMM            .\n           MMMMMM  \"MMMM  .MMMMM(        .nnMP\"\ \n..          *MMMMx  MMM\"  dMMMM\"    .nnMMMMM*\n \"MMn...     \'MMMMr \'MM   MMM\"   .nMMMMMMM*"\n  "4MMMMnn..   *MMM  MM  MMP\"  .dMMMMMMM\"\"\n    ^MMMMMMMMx.  *ML \"M .M*  .MMMMMM**\"\n       *PMMMMMMhn. *x > M  .MMMM**\"\"\n          \"\"**MMMMhx/.h/ .=*\"\n                   .3P\"%....\n        [nosig]  nP\"     \"*MMnx', on_color='on_green', color="white")
+rfc_number=open('./rfc_number.txt').read().rstrip()
+
+termcolor.cprint("                             /T /I\n\
+                              / |/ | .-~/\n\
+                          T\ Y  I  |/  /  _\n\
+         /T               | \I  |  I  Y.-~/\n\
+        I l   /I       T\ |  |  l  |  T  /\n\
+     T\ |  \ Y l  /T   | \I  l   \ `  l Y\n\
+ __  | \l   \l  \I l __l  l   \   `  _. |\n\
+ \ ~-l  `\   `\  \  \\ ~\  \   `. .-~   |\n\
+  \   ~-. \"-.  `  \  ^._ ^. \"-.  /  \   |\n\
+.--~-._  ~-  `  _  ~-_.-\"-.\" ._ /._ .\" ./\n\
+ >--.  ~-.   ._  ~>-\"    \"\\   7   7   ]\n\
+^.___~\"--._    ~-{  .-~ .  `\ Y . /    |\n\
+ <__ ~\"-.  ~       /_/   \   \I  Y   : |\n\
+   ^-.__           ~(_/   \   >._:   | l______\n\
+       ^--.,___.-~\"  /_/   !  `-.~\"--l_ /     ~\"-.\n\
+              (_/ .  ~(   /'     \"~\"--,Y   -=b-. _)\n\
+               (_/ .  \  :           / l      c\"~o \ \n\
+                \ /    `.    .     .^   \_.-~\"~--.  )\n\
+                 (_/ .   `  /     /       !       )/\n\
+                  / / _.   '.   .':      /        '\n\
+                  ~(_/ .   /    _  `  .-<_\n\
+                    /_/ . ' .-~\" `.  / \  \          ,z=.\n\
+                    ~( /   '  :   | K   \"-.~-.______//\n\
+                      \"-,.    l   I/ \_    __{--->._(==.\n\
+                       //(     \  <    ~\"~\"     //\n\
+                      /' /\     \  \     ,v=.  ((\n\
+                    .^. / /\     \"  }__ //===-  `\n\
+                   / / ' '  \"-.,__ {---(==-       -Row\n\
+                 .^ '       :  T  ~\"   ll\n\
+                / .  .  . : | :!        \\\n\
+               (_/  /   | | j-\"          ~^\n\
+                 ~-<_(_.^-~\"", color="magenta", on_color="on_white")
 try:
     os.chdir(os.path.dirname(os.path.realpath(__file__)) + '/' + today.strftime("%b_%Y") + '_separate_csv_with_patching_list/')
 except FileNotFoundError:
@@ -221,4 +254,5 @@ except FileNotFoundError:
     termcolor.cprint("Common total.csv file is not found. Exiting, can not proceed...", color="white", on_color="on_red")
     exit()
 csv_reader=csv.reader(csv_file, delimiter=';')
+
 main()
