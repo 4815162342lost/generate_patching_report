@@ -17,7 +17,7 @@ import csv
 import datetime
 import configparser
 import logging
-
+import pytz
 
 log_file=logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__))+ '/send_separate_emails_error.log', level=logging.INFO,  datefmt="%d/%m%Y %H:%M:%S", format="%(asctime)s %(message)s")
 
@@ -48,6 +48,11 @@ def return_server_groups(server_list):
     return server_groups
 
 
+def get_human_readeable_time_zone(tz_input):
+    current_datetime=datetime.datetime.now(tz=pytz.timezone(tz_input))
+    return current_datetime.strftime("%Z")
+
+
 def prepare_xlsx_file(servers):
     '''Function for generate xlsx-files and write them to /tmp/ directory, servers -- list of servers'''
     #create xsls-file, total_sheet and get formats
@@ -58,11 +63,11 @@ def prepare_xlsx_file(servers):
     total_sheet=xlsx_file.add_worksheet("Total")
     total_sheet.set_tab_color(color="yellow")
     total_sheet.write_row(row=0, col=0,data=("Server name", "Conclusion", "Kernel upgrade", "Reboot required"), cell_format=format['format_bold'])
-    table="<table border='1'><tr><td>Server name</td><td>Patching start date</td><td>Patching start time</td><td>Patching time zone</td></tr>"
-
+    table="<table border='1'><tr><td>Server name</td><td>Patching start date</td><td>Patching start time</td><td>Patching end date</td><td>Patching end time</td><td>Patching time zone</td></tr>"
     for idx, current_server in enumerate(servers):
         # change the position in file to beginning
         csv_file.seek(0)
+        need_proceed=False
         #crete sheet with server name and open txt-file with server
         server_sheet=xlsx_file.add_worksheet(current_server.upper())
         server_file_csv=csv.reader(open(current_server.lower(), 'r'), delimiter=';')
@@ -70,18 +75,23 @@ def prepare_xlsx_file(servers):
         for row in csv_reader:
             if row[0]==current_server:
                 patches_str=row;
+                need_proceed=True
                 break
         #if server is not found in total.csv file
-        if 'patches_str' not in locals():
+        if not need_proceed:
             termcolor.cprint('Can not find the {server} server in total.csv file. Skipping...'.format(server=current_server), color="white", on_color="on_red")
             logging.warning('Can not find the {server} server in total.csv file. Skipping...'.format(server=current_server))
             servers_which_not_find_in_total_csv_file+=1
             continue
         #if server should be patched
         if int(patches_str[3])!=0:
-            patching_code, start_time, time_zone =db_cur.execute("SELECT WINDOW_CODE, START_TIME, TIMEZONE FROM SERVERS WHERE SERVER_NAME=:server_name COLLATE NOCASE", {'server_name': current_server}).fetchone()
-            start_date = get_patching_start_date(today, patching_code, db_cur).strftime("%d/%m/%Y")
-            table += "<tr><td>{server_name}</td><td>{start_date}</td><td>{start_time}</td><td>{time_zone}</td></tr>\n".format(server_name=current_server.upper(), start_date=start_date, start_time=start_time, time_zone=time_zone)
+            patching_code, start_time, patching_duration, time_zone =db_cur.execute("SELECT WINDOW_CODE, START_TIME, DURATION_TIME, TIMEZONE FROM SERVERS WHERE SERVER_NAME=:server_name COLLATE NOCASE", {'server_name': current_server}).fetchone()
+            start_date = get_patching_start_date(today, patching_code, db_cur)
+            start_date=datetime.datetime(year=start_date.year, month=start_date.month, day=start_date.day, hour=int(start_time[0:2]), minute=int(start_time[3:5]))
+            end_datetime_datetime=start_date + datetime.timedelta(hours=int(patching_duration[0:2]), minutes=int(patching_duration[3:5]))
+            start_date=start_date.strftime("%d/%m/%Y")
+            table += "<tr><td>{server_name}</td><td>{start_date}</td><td>{start_time}</td><td>{end_date}</td><td>{end_time}</td><td>{time_zone}</td></tr>\n".format(server_name=current_server.upper(), \
+                    start_date=start_date, start_time=start_time, time_zone=get_human_readeable_time_zone(time_zone), end_date=end_datetime_datetime.strftime("%d/%m/%Y"), end_time=end_datetime_datetime.strftime("%H:%M"))
             suse=False
             server_sheet.write(0,0, "{count} packages will be updated".format(count=patches_str[3]), format['format_bold'])
             server_sheet.write_row(1, 0, next(server_file_csv)[0:3], cell_format=format['format_bold'])
@@ -112,7 +122,7 @@ def prepare_xlsx_file(servers):
         #if not patches
         else:
             #add server to html_tabe
-            table+="<tr><td>{server_name}</td><td>No updates available</td><td> </td><td> </td></tr>".format(server_name=current_server.upper())
+            table+="<tr><td>{server_name}</td><td>No updates available</td><td> </td><td> </td><td> </td><td> </td></tr>".format(server_name=current_server.upper())
             server_sheet.write(0, 0, "Upgrade is not needed", format['format_bold'])
             server_sheet.set_column(0, 0, 20)
             server_sheet.set_tab_color(color="green")
@@ -186,7 +196,7 @@ def send_email_with_xlsx_to_customer(group_of_e_mails, table):
         except Exception as e:
             termcolor.cprint('Error occured during sendig e-mail again... Skipping this message.  Exception: {ex} '.format(ex=str(e)), color='red', on_color='on_white')
             logging.warning("Can not send the e-mail to {e_mails}".format(e_mails=msg['To']))
-    input("Please, enter any symbol to proceed...")
+    input("Please, enter any key to proceed...")
 
 def main():
     '''main function'''
@@ -205,7 +215,7 @@ def main():
             termcolor.cprint("E-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer due to errors above...".format(current_uniq_so_group_servers=servers), color="white", on_color="on_red")
             logging.warning("Error: e-mail for these {current_uniq_so_group_servers} server(s) will not be send to customer...".format(current_uniq_so_group_servers=servers))
 
-db_cur=sqlite3.connect('./patching.db').cursor()
+db_cur=sqlite3.connect('./patching_dev.db').cursor()
 settings = get_settings()
 today=datetime.datetime.now()
 
