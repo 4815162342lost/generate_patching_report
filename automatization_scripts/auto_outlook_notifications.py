@@ -24,16 +24,16 @@ import dateutil
 import hashlib
 import random
 import argparse
+import datetime
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 def parse_args():
+    '''parse the arguments, only --md5 is possible and uses for cancel outlook notification'''
     args=argparse.ArgumentParser()
     args.add_argument("-m", '--md5', type=str, required=False, help="notification hash which must be cancelled")
     return args.parse_args()
-
-
 
 
 def get_settings():
@@ -90,29 +90,32 @@ def prepare_email(patching_date, extracted_data_from_excel, project_name, need_t
     #  'PATCHING_CODE', datetime.datetime(2018, 11, 27, 0, 0), '16:00 - 20:00 CET', 'mysql-server_1',
     #  'These two servers are members of a cluster and should not be rebooted at the same time.
     #  'e_mail_1@my_org.com; e_mail_2@my_org.com]
-
+    error_counts=0
     attendees=settings[cursor_patching_db.execute("SELECT ATTENDEE_GROUP FROM SERVER_OWNERS_EMAILS WHERE PROJECT_NAME=:project_name", {'project_name' : project_name}).fetchone()[0]]
     if need_to_add_dba_team:
         attendees+="," + settings['dba_team_e_mail']
     patching_start_date=datetime.datetime.strptime(patching_date, '%d.%m.%Y %H:%M')
     possible_colors = ('#f6cec2 ', '#cef6c2 ', '#c2f5f6 ', '#cecbf2 ', '#f5f3ad ')
     event_uid=str(hashlib.md5((str(datetime.datetime.utcnow()) + str(random.randint(10000,99999))).encode("utf-8")).hexdigest())
-    table_with_servers='<table><tr bgcolor="#e1f65d"><th text-align="centre">Server</th><th>OS</th><th>Environment</th><th>Patching date</th><th>Patching time</th><th>Patching contacts</th>\
-    <th>Additional mm</th><th>Special instructions</th></tr>'
+    table_with_servers='<table><tr bgcolor="#e1f65d"><th text-align="centre">Server</th><th>OS_type_version</th><th>Environment</th><th>Patching_date</th><th>Patching_start_time</th><th>Patching_contacts</th>\
+    <th>Additional_mm_for_patching</th><th>Special_instructions_for_patching</th></tr>\n'
     for idx, current_data_from_excel in enumerate(extracted_data_from_excel):
         try:
             table_with_servers+='<tr bgcolor={color}><th>{server_name}</th><th>{os_type}</th><th>{env}</th><th>{start_date}</th><th>{start_time}</th><th>{contacts}\
-            </th><th>{additional_mm}</th><th>{special_instructions}</th></tr>'.\
+            </th><th>{additional_mm}</th><th>{special_instructions}</th></tr>\n'.\
                 format(server_name=current_data_from_excel[1].upper(), os_type=current_data_from_excel[0][2], env=current_data_from_excel[0][3],\
                 start_date=current_data_from_excel[0][9].strftime("%d %m %Y"), start_time=current_data_from_excel[0][10], contacts=current_data_from_excel[0][13],
                        color=possible_colors[idx%5], additional_mm=current_data_from_excel[0][11], special_instructions=current_data_from_excel[0][12])
         except (AttributeError,IndexError):
             print("Error with {server} server".format(server=current_data_from_excel[1].upper()))
+            error_counts+=1
     table_with_servers+='</table>'
-
     body='<html><head><meta charset="UTF-8"><style>table, th, td {{border: 1px solid black;border-collapse: collapse;}}th, td {{padding: 5px;text-align: center;}}</style></head><body>\
     <br><b><font size=3>HASH: {hash}</font></b><br><br><b>Linux administrators</b>, please, perform this patching at <b>{patching_time} CET:</b>\
     <br>{table_with_servers}</body></html>'.format(patching_time=patching_start_date, table_with_servers=table_with_servers, hash=event_uid)
+    if error_counts==len(extracted_data_from_excel):
+        print("E-mail will not be sent, because table is empty...")
+        return 0
     send_notify_email(body, patching_start_date, project_name, attendees, event_uid)
 
 
@@ -145,7 +148,7 @@ def return_uniq_groups(servers):
 
 
 def send_notify_email(body, start_time, title, attendees, event_uid):
-    subject = 'Linux Monthly Patching {month} | RFC {rfc_number} {project}'.format(
+    subject = 'Linux Monthly Patching {month} | RFC {rfc_number} | {project}'.format(
         month=datetime.datetime.now().strftime("%B %Y"), rfc_number=rfc_number, project=title)
     start_time_utc=return_utc(start_time)
     cal = icalendar.Calendar()
@@ -177,12 +180,10 @@ def send_notify_email(body, start_time, title, attendees, event_uid):
     alarm.add('X-MICROSOFT-CDO-BUSYSTATUS', 'FREE')
     event.add_component(alarm)
     cal.add_component(event)
-
     cal_for_cancel = icalendar.Calendar()
     cal_for_cancel.add('prodid', '-//My calendar application//example.com//')
     cal_for_cancel.add('version', '2.0')
     cal_for_cancel.add('method', 'CANCEL')
-
     event_cancel = icalendar.Event()
     event_cancel.add('summary', "[CANCELLED] " + subject)
     event_cancel.add('dtstart', datetime.datetime.strptime(start_time_utc, "%d-%m-%Y %H:%M"))
@@ -222,9 +223,6 @@ def send_notify_email(body, start_time, title, attendees, event_uid):
     part_calendar_for_cancel.add_header("Content-class", "urn:content-classes:appointment")
     part_calendar_for_cancel.add_header("Filename", filename)
     part_calendar_for_cancel.add_header("Path", filename)
-
-    # print(part_calendar_for_cancel)
-    # exit()
     encode_base64(part_calendar_for_cancel)
     msg_a_for_cancel.attach(MIMEText(body.replace("please, perform this patching", "<font size=12 color='red'>DO NOT DO IT</font>"), 'html'))
     msg_a_for_cancel.attach(part_calendar_for_cancel)
@@ -275,13 +273,11 @@ def send_notify_email(body, start_time, title, attendees, event_uid):
         except Exception as e:
             termcolor.cprint("Can not send outlook-notofocation for this {prj} project to {start_date}".format(start_date=start_time, prj=title), color="white", on_color="on_red")
             print("Exceprion: {e}".format(e=str(e)))
+    input("Press any key to proceed...")
 
 def cancel_notification(hash):
     msg=open("./archive/" + hash + '.msg', 'rb').read().decode()
-
-
     recept_list = cursor_hashes_db.execute("SELECT EMAILS FROM HASHES WHERE HASH=:hash", {'hash' : hash}).fetchone()[0].split(',')
-
     s = smtplib.SMTP(settings['smtp_server'])
     s.sendmail(settings['e_mail_from'], recept_list, msg)
     s.quit()
@@ -291,40 +287,48 @@ def main():
     csv_files = glob.glob('./csv_files/*.csv')
     #example: {'25.12.2018 16:00': ['cent_os', 'cent_os_2']}
     uniq_datetime_dict_with_servers=extract_uniq_date_and_time_groups(csv_files)
-    uniq_groups={}; extracted_data_from_xlsx=[]
+    extracted_data_from_xlsx=[]
     for current_uniq_datetime_dict_with_servers_key in uniq_datetime_dict_with_servers.keys():
-        need_to_add_dba_team = False
+        #current_uniq_datetime_dict_with_servers_key: (25.12.2018 16:00)
         # example: {'UNIQ_PROJECT_NAME_1': ['server_1'], 'UNIQ_PROJECT_NAME_2': ['server_2', 'server_3']}
         uniq_groups=return_uniq_groups(uniq_datetime_dict_with_servers[current_uniq_datetime_dict_with_servers_key])
+        need_to_add_dba_team = False
         for current_uniq_group_name_project_name, current_uniq_group_name_servers_list in uniq_groups.items():
             for current_uniq_group_name_servers in current_uniq_group_name_servers_list:
+                #current_uniq_group_name_servers -- current server name, one server
                 if current_uniq_group_name_servers=='dba_needed':
                     need_to_add_dba_team=True
                     continue
-                extracted_data_from_xlsx.append((return_information_from_xlsx_file(current_uniq_group_name_servers.lower()),current_uniq_group_name_servers))
-        prepare_email(current_uniq_datetime_dict_with_servers_key, extracted_data_from_xlsx, current_uniq_group_name_project_name, need_to_add_dba_team)
-        extracted_data_from_xlsx.clear()
-        print("===========================================")
-
+                extract_from_excel=return_information_from_xlsx_file(current_uniq_group_name_servers.lower())
+                if extract_from_excel:
+                    extracted_data_from_xlsx.append((extract_from_excel,current_uniq_group_name_servers))
+            if extracted_data_from_xlsx:
+                prepare_email(current_uniq_datetime_dict_with_servers_key, extracted_data_from_xlsx, current_uniq_group_name_project_name, need_to_add_dba_team)
+            extracted_data_from_xlsx.clear()
+            need_to_add_dba_team=False
     connect_hashes_db.close()
     exit()
 
 
 termcolor.cprint(" ,_     _\n |\\_,-~/\n / _  _ |    ,--.\n(  @  @ )   / ,-\'\n \  _T_/-._( (\n /         `. \ \n|         _  \ |\n \ \ ,  /      |\n  || |-_\__   /\n ((_/`(____,-\'", color="grey", on_color="on_white")
-
-cursor_patching_db = sqlite3.connect('./patching.db').cursor()
 connect_hashes_db=sqlite3.connect('./patching_hashes.db')
 cursor_hashes_db=connect_hashes_db.cursor()
 
 rfc_number=open('./rfc_number.txt', 'r').read().rstrip()
 settings=get_settings()
 
-patching_xlsx_file=openpyxl.load_workbook(filename='patching.xlsx', read_only=False, data_only=True)
-sheet_with_schedule=patching_xlsx_file['Cycle_Patching']
-
 args=parse_args()
 if args.md5:
     cancel_notification(args.md5)
     exit()
 
+today=datetime.datetime.now()
+cursor_patching_db = sqlite3.connect('./patching.db').cursor()
+try:
+    patching_xlsx_file=openpyxl.load_workbook(filename='Monthly_patch_schedule_Linux_{month}_{year}.xlsx'.format(month=today.strftime('%b'), year=today.strftime('%Y')), read_only=False, data_only=True)
+except FileNotFoundError:
+    print("Can not find a {file} file! Exiting...".format(file='Monthly_patch_schedule_Linux_{month}_{year}.xlsx'.format(month=today.strftime('%b'), year=today.strftime('%Y'))))
+    exit()
+
+sheet_with_schedule=patching_xlsx_file['Cycle_Patching']
 main()
