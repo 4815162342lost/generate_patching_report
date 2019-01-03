@@ -25,6 +25,7 @@ import hashlib
 import random
 import argparse
 import datetime
+import copy
 
 sys.path.append(get_python_lib())
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -165,10 +166,14 @@ def send_notify_email(body, start_time, title, attendees, event_uid, patching_du
     subject = 'Linux Monthly Patching {month} | RFC {rfc_number} | {project}'.format(
         month=datetime.datetime.now().strftime("%B %Y"), rfc_number=rfc_number, project=title)
     start_time_utc=return_utc(start_time)
+    
+    # create calendar
     cal = icalendar.Calendar()
     cal.add('prodid', '-//My calendar application//example.com//')
     cal.add('version', '2.0')
     cal.add('method', 'REQUEST')
+    
+    # create event
     event = icalendar.Event()
     event.add('summary', subject)
     event.add('dtstart', datetime.datetime.strptime(start_time_utc, "%d-%m-%Y %H:%M"))
@@ -187,6 +192,8 @@ def send_notify_email(body, start_time, title, attendees, event_uid, patching_du
     event.add('X-MICROSOFT-CDO-BUSYSTATUS', 'FREE')
     for current_attendee in attendees.split(","):
         event.add('attendee', current_attendee)
+        
+    # create alarm
     alarm = icalendar.Alarm()
     alarm.add("action", "DISPLAY")
     alarm.add('description', "Reminder")
@@ -200,14 +207,14 @@ def send_notify_email(body, start_time, title, attendees, event_uid, patching_du
     msg["Subject"] = subject
     msg["From"] = settings['e_mail_from']
     msg["To"] = attendees
+
+    msg_for_cancel = copy.deepcopy(msg)
     cursor_hashes_db.execute('INSERT INTO "HASHES" (HASH,EMAILS) VALUES (?,?)', (str(event_uid), attendees))
     connect_hashes_db.commit()
-
     msg_a = MIMEMultipart('alternative')
     msg.attach(msg_a)
     part_calendar = MIMEMultipart('text', "calendar", method="REQUEST", name=filename)
     part_calendar.set_type('text/calendar; charset=UTF-8; method=REQUEST; component = VEVENT')
-    part_calendar.set_payload(cal.to_ical())
     part_calendar.add_header('Content-Type', 'text/calendar')
     part_calendar.add_header('charset', 'UTF-8')
     part_calendar.add_header('component', 'VEVENT')
@@ -217,10 +224,15 @@ def send_notify_email(body, start_time, title, attendees, event_uid, patching_du
     part_calendar.add_header("Content-class", "urn:content-classes:appointment")
     part_calendar.add_header("Filename", filename)
     part_calendar.add_header("Path", filename)
+
+    part_calendar_before_encode=copy.deepcopy(part_calendar)
+    part_calendar.set_payload(cal.to_ical())
+
     encode_base64(part_calendar)
     msg_a.attach(MIMEText(body, 'html'))
     msg_a.attach(part_calendar)
     recept_list=attendees.split(",")
+
     try:
         s = smtplib.SMTP(settings['smtp_server'])
         s.sendmail(msg["From"], recept_list, msg.as_string())
@@ -241,33 +253,21 @@ def send_notify_email(body, start_time, title, attendees, event_uid, patching_du
     cal.update({'method' : 'CANCEL'})
     event.update({'summary' : "[CANCELLED] " + subject})
     event.update({'status': "cancelled"})
-    msg.replace_header('Subject', "[CANCELLED] "  + subject)
-    msg_for_cancel = MIMEMultipart("mixed")
-    msg_for_cancel["Subject"] = "[CANCELLED] "  + subject
-    msg_for_cancel["From"] = settings['e_mail_from']
-    msg_for_cancel["To"] = attendees
+    
+    msg_for_cancel.replace_header('Subject', "[CANCELLED] "  + subject)
     msg_a_for_cancel = MIMEMultipart('alternative')
     msg_for_cancel.attach(msg_a_for_cancel)
     msg_a_for_cancel.attach(MIMEText(body.replace("please, perform this patching", "<font size=12 color='red'>DO NOT DO IT</font>"), 'html'))
-    part_calendar_for_cancel = MIMEMultipart('text', "calendar", method="CANCEL", name=filename)
-    part_calendar_for_cancel.set_type('text/calendar; charset=UTF-8; method=CANCEL; component = VEVENT')
-    part_calendar_for_cancel.set_payload(cal.to_ical())
-    part_calendar_for_cancel.add_header('Content-Type', 'text/calendar')
-    part_calendar_for_cancel.add_header('charset', 'UTF-8')
-    part_calendar_for_cancel.add_header('component', 'VEVENT')
-    part_calendar_for_cancel.add_header('method', 'CANCEL')
-    part_calendar_for_cancel.add_header('Content-Description', filename)
-    part_calendar_for_cancel.add_header('Content-ID', 'calendar_message')
-    part_calendar_for_cancel.add_header("Content-class", "urn:content-classes:appointment")
-    part_calendar_for_cancel.add_header("Filename", filename)
-    part_calendar_for_cancel.add_header("Path", filename)
-    encode_base64(part_calendar_for_cancel)
-    msg_a_for_cancel.attach(part_calendar_for_cancel)
+    
+    part_calendar_before_encode.replace_header('Content-Type', 'text/calendar; charset="UTF-8"; method="CANCEL"; component = "VEVENT"; name="invite.ics"; boundary="calendar"')
+    part_calendar_before_encode.replace_header('method', 'CANCEL')
+    part_calendar_before_encode.set_payload(cal.to_ical())
+    encode_base64(part_calendar_before_encode)
+    msg_a_for_cancel.attach(part_calendar_before_encode)
     save_notification_to_disk=open("./archive/" + event_uid + ".msg", 'wb')
     save_notification_to_disk.write(msg_for_cancel.as_bytes())
     save_notification_to_disk.close()
     input("Enter any symbol to proceed...")
-
 
 
 def cancel_notification(hash):
