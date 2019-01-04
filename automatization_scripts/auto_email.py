@@ -14,6 +14,7 @@ import os
 from distutils.sysconfig import get_python_lib
 import logging
 import configparser
+import time
 
 logging.basicConfig(filename="/var/log/patching/patching_auto_email.log", filemode="a", format="%(asctime)s %(message)s", datefmt="%d/%m/%Y %H:%M:%S", level=logging.INFO)
 logging.info("==================================================================")
@@ -97,7 +98,7 @@ def email_sending(servers_for_sending_emails, params):
     '''Function for send e-mail'''
     logging.info("Trying to send e-mail to customer...")
     logging.info("Servers whcih will be in current e-mail: {servers}".format(servers=" ".join(servers_for_sending_emails)))
-    logging.info("Customer names: {names}, e-mails: {emails}, project name {project_name}, date: {date}".format(names=params[0], emails=params[1], project_name=params[2], date=params[3]))
+    logging.info("Customer names: {names}, e-mails: {emails}, project name: {project_name}, date: {date}".format(names=params[0], emails=params[1], project_name=params[2], date=params[3]))
     so_str = ''
     services_owners = params[0].split(',')
     if len(services_owners) == 1:
@@ -151,6 +152,11 @@ servers_which_will_be_patched_soon=extract_needed_servers()
 if servers_which_will_be_patched_soon:
     server_so_email_date = extract_emails_and_so(servers_which_will_be_patched_soon)
     prepare_email(server_so_email_date)
+    servers_list = [zz for zz in servers_which_will_be_patched_soon.keys()]
+    logging.info("going to raise a script for create snapshots. But now sleeping 10 minutes...")
+    time.sleep(600)
+    os.system("{script_snapshots}/auto_snapshots.py -s {servers}".format(servers=','.join(servers_list), script_snapshots=os.path.dirname(os.path.realpath(__file__))))
+
 else:
     logging.info("There are no servers which will be patched soon")
 logging.info("Exiting. Bye-bye...")
