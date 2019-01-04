@@ -13,6 +13,8 @@ import json
 import logging
 import dateutil.tz
 import configparser
+import argparse
+import time
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
@@ -24,15 +26,26 @@ sign = '<br>--------------------------------------------------------------------
 logging.info("=======================================================================")
 logging.info("Starting the script...")
 
+def get_argparser():
+    """Function for return list of servers from args"""
+    args=argparse.ArgumentParser()
+    args.add_argument("-s", '--servers', type=str, required=False, help='the list of servers separated by comma')
+    return args.parse_args()
+
+
 def get_settings():
-    '''parse the confi file'''
+    """parse the config file"""
     parse_conf=configparser.ConfigParser()
     parse_conf.read("./settings.cfg")
     return parse_conf['auto_snapshots']
 
 
+def get_servers_from_args():
+    pass
+
+
 def get_bitcoin_price():
-    '''return current Bitcoin price. Just for fun'''
+    """return current Bitcoin price. Just for fun"""
     logging.info("Let's know the current BTC proce...")
     import requests
     import json
@@ -51,7 +64,7 @@ def get_bitcoin_price():
 
 
 def get_eth_zec_price():
-    '''Return Etherum and Zcash price. Why not?'''
+    """Return Ethereum and Zcash price. Why not?"""
     logging.info("Getting ETH and ZEC price")
     import requests
     import json
@@ -71,7 +84,7 @@ def get_eth_zec_price():
 
 
 def extract_needed_servers():
-    '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
+    """Depricated function for read csv files and extract servers which should be patched between now+13 min. and now+28 min. Please, use -L option instead"""
     servers_for_create_snapshot = {}
     logging.info("Searching needed servers...")
     csv_files=glob.glob('./*linux_snapshots*.csv')
@@ -92,8 +105,26 @@ def extract_needed_servers():
         logging.info("There are no servers which will be patched soon...")
     return servers_for_create_snapshot
 
+
+def need_create_snapshot_or_not(servers):
+    """Function which check need create snapshot or not from local sqlite3 database"""
+    import sqlite3
+    servers_which_require_snapshot=[]
+    sqlite3_database=sqlite3.connect("./patching.db")
+    sqlite3_database_cursor=sqlite3_database.cursor()
+    for current_server in servers:
+        try:
+            if sqlite3_database_cursor.execute('SELECT NEED_SNAPSHOT FROM SERVERS WHERE SERVER_NAME=:server COLLATE NOCASE', {"server" : current_server}).fetchone()[0] == 1:
+                logging.info("{server} server is require snapshot".format(server=current_server))
+                servers_which_require_snapshot.append(current_server)
+        except Exception as e:
+            logging.warning("Error during get info for {server} from sqlite3 database: {exception_text}".format(server=current_server, exception_text=e))
+    return servers_which_require_snapshot
+
+
+
 def create_snaphots(server_name):
-    '''Function for create snapshots'''
+    """Function for create snapshots"""
     logging.info("Trying to create snapshot for {server} server".format(server=server_name))
     try:
         proc_create_snapshot=subprocess.Popen("salt-cloud -y -a create_snapshot {server_name} snapshot_name='{RFC_number}' description='patching' memdump=False quiesce=False --out=json".format(server_name=server_name.lower(), RFC_number=rfc_number), shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -122,7 +153,7 @@ def create_snaphots(server_name):
 
 
 def email_sending(results_dic):
-    '''Function for e-mail sending'''
+    """Function for e-mail sending"""
     logging.info("Prepare and sending e-mail...")
     eth, zec = get_eth_zec_price()
     mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date} CET<br><b>BTC price: </b>{btc}<br> <b>ETH price: </b>{eth}<br> <b>ZEC price: </b>{zec}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price(), eth=eth, zec=zec)
@@ -152,7 +183,25 @@ def email_sending(results_dic):
 
 settings=get_settings()
 rfc_number=open('./rfc_number.txt', 'r').read().rstrip()
+
+logging.info("Parse -s argument...")
+arguments=get_argparser()
+if arguments.servers:
+    logging.info("Argument -s is not empty: {arg}".format(arg=arguments.servers))
+    servers=arguments.servers.split(",")
+    salt_cloud_result = {}; servers_which_require_snapshots=[]
+    servers_which_require_snapshots=need_create_snapshot_or_not(servers)
+    if servers_which_require_snapshots:
+        for current_server in servers_which_require_snapshots:
+            salt_cloud_result[current_server] = create_snaphots(current_server)
+        email_sending(salt_cloud_result)
+    else:
+        logging.info("There are no servers which require snapshots")
+    logging.info("All done. Exiting...")
+    exit()
+
 needed_servers=extract_needed_servers()
+
 if needed_servers:
     salt_cloud_result={}
     for current_server in needed_servers:
