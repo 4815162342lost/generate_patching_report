@@ -70,7 +70,7 @@ def perform_additional_actions(args, today, os, xlsx_name, settings, servers_for
         db_con = sqlite3.connect('./patching.db')
         db_cur = db_con.cursor()
         logging.info("Raising working_with_csv finction")
-        error_list_from_csv = working_with_csv(servers_for_patching, db_cur, today, os, args.csv, settings['timezone'])
+        error_list_from_csv = working_with_csv(servers_for_patching, db_cur, today, os, settings['timezone'])
         logging.info("Error list in csv-ffile: {error_list}".format(error_list=error_list_from_csv))
         if error_list_from_csv:
             termcolor.cprint("Maintenance mode will be incorrect:\n" + ',\n'.join(error_list_from_csv), color='magenta', on_color='on_white')
