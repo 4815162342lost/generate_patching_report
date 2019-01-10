@@ -68,12 +68,13 @@ def create_csv_list_with_servers_for_write_and_with_additional_monitors(servers_
     servers_for_write_to_csv_with_mm=[]; servers_with_additional_monitors=[];
     error_list=[]; servers_before_4_days=[]; servers_without_mm = []
     for current_server in servers_for_patching:
-        server_window_code, need_mm, need_email_before_four_days= db_cur.execute('SELECT WINDOW_CODE, NEED_MM, NEED_EMAIL_BEFORE_4_DAYS FROM SERVERS \
+        data_from_sqlite_db = db_cur.execute('SELECT WINDOW_CODE, NEED_MM, NEED_EMAIL_BEFORE_4_DAYS FROM SERVERS \
                                             WHERE SERVER_NAME=:current_server COLLATE NOCASE',
                                             {'current_server':current_server}).fetchone()
-        if not server_window_code:
+        if not data_from_sqlite_db:
             error_list.append('Server {server} does not exist on database...'.format(server=current_server))
             continue
+        server_window_code, need_mm, need_email_before_four_days = data_from_sqlite_db
         if need_mm==0:
             print("For server {server} maintenance mode is not required")
         #get patching start day
