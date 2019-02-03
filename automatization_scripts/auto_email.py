@@ -35,7 +35,7 @@ def extract_needed_servers():
     '''function for read csv files and extract servers which should be patched between now+13 min. and now+28 min.'''
     logging.info("Searching needed servers from csv-files...")
     servers_for_sending_email = {}
-    csv_files=glob.glob('./*linux_MM*.csv')
+    csv_files=glob.glob('./*linux_*.csv')
     logging.info("Working with these csv-files: {csv}".format(csv=str(csv_files)))
     for csv_file_for_open in csv_files:
         csv_file = open(csv_file_for_open)
