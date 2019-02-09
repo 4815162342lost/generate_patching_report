@@ -3,6 +3,7 @@ import calendar
 import datetime
 import logging
 import pytz
+from dateutil import relativedelta
 
 logging.getLogger(__name__)
 
@@ -28,23 +29,26 @@ def working_with_csv(servers_for_patching, db_cur, today, os, time_zone):
 
 def get_patching_start_date(today, window_code, db_cur):
     '''function for return patching start date (year, minth and day)'''
+    #get calendar for current month
+    cal=calendar.Calendar(firstweekday=0)
+    cal_current_month=cal.monthdayscalendar(today.year, today.month)
+    #get patching code from database
     patch_code_from_db=db_cur.execute("SELECT IDX, WEEKDAY FROM WINDOW_CODE WHERE CODE =:window_code COLLATE NOCASE", {'window_code' : window_code }).fetchone()
-    patch_month=today.month; patch_year=today.year;
-    #if patchinh on first weekday -- get next month
     if not patch_code_from_db:
         return None
-    if not patch_code_from_db[0]:
-        patch_month=today.month+1
-        if patch_month>12:
-            patch_month=1; patch_year+=1
-    cal=calendar.Calendar(firstweekday=6)
-    calendar_for_month=cal.monthdayscalendar(patch_year, patch_month)
-    #check day of week on first week or not
-    if not calendar_for_month[0][patch_code_from_db[1]]:
-        patch_day=calendar_for_month[patch_code_from_db[0]+1][patch_code_from_db[1]]
-    else:
-        patch_day = calendar_for_month[patch_code_from_db[0]][patch_code_from_db[1]]
-    return datetime.datetime(year=patch_year, month=patch_month, day=patch_day)
+    #get number of week where second Tuesday (index starts from 0)
+    week_with_second_tuesday = 1
+    if not cal_current_month[0][1]:
+        week_with_second_tuesday = 2
+    #get patching date time
+    try:
+        patch_date= datetime.date(year=today.year, month=today.month, day=cal_current_month[patch_code_from_db[0]+week_with_second_tuesday][patch_code_from_db[1]])
+    #if patching date not in current month -- get next month and start date
+    except:
+        next_month_and_year = today + relativedelta.relativedelta(months=1)
+        cal_next_month = cal.monthdayscalendar(next_month_and_year.year, next_month_and_year.month)
+        patch_date = datetime.date(year=next_month_and_year.year, month=next_month_and_year.month, day=cal_next_month[patch_code_from_db[0]+week_with_second_tuesday-len(cal_current_month)+1][patch_code_from_db[1]])
+    return patch_date
 
 
 def write_to_csv(csv_name, list_for_write, csv_format):
