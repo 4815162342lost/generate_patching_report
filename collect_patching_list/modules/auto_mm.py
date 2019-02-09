@@ -44,10 +44,11 @@ def get_patching_start_date(today, window_code, db_cur):
     try:
         patch_date= datetime.date(year=today.year, month=today.month, day=cal_current_month[patch_code_from_db[0]+week_with_second_tuesday][patch_code_from_db[1]])
     #if patching date not in current month -- get next month and start date
-    except:
+    except (ValueError,IndexError):
         next_month_and_year = today + relativedelta.relativedelta(months=1)
         cal_next_month = cal.monthdayscalendar(next_month_and_year.year, next_month_and_year.month)
-        patch_date = datetime.date(year=next_month_and_year.year, month=next_month_and_year.month, day=cal_next_month[patch_code_from_db[0]+week_with_second_tuesday-len(cal_current_month)+1][patch_code_from_db[1]])
+        patch_date = datetime.date(year=next_month_and_year.year, month=next_month_and_year.month, day=cal_next_month[patch_code_from_db[0]+
+                                    week_with_second_tuesday-len(cal_current_month)+1][patch_code_from_db[1]])
     return patch_date
 
 
