@@ -7,14 +7,17 @@ import configparser
 import re
 import time
 
-def patching_centos(server_name, ssh_connection, db_con):
+def patching_rhel_based(server_name, ssh_connection, db_con, os_type):
     """Function for patch Centos"""
     stdin, stdout, stderr = ssh_connection.exec_command("cat /etc/system-release | grep -o  '[0-9]' | head -n 1")
     centos_version=stdout.read().decode().rstrip()
     stdin, stdout, stderr = ssh_connection.exec_command('ls /var/run/yum.pid >/dev/null 2>&1')
     #yum.pid does not exist, need perform patching
     if stdout.channel.recv_exit_status() == 1 or stdout.channel.recv_exit_status() == 2:
-        stdin, stdout, stderr = ssh_connection.exec_command('yes | yum update -q  --nogpgcheck')
+        if os_type == 'centos':
+            stdin, stdout, stderr = ssh_connection.exec_command('yes | yum update -q  --nogpgcheck')
+        elif os_type == 'redhat':
+            stdin, stdout, stderr = ssh_connection.exec_command('yes | yum update --security -q  --nogpgcheck')
         if stdout.channel.recv_exit_status() == 1:
             print('Patching failed!')
             #print(stderr.read().decode().replace("\n\n", '\n'))
@@ -34,16 +37,6 @@ def patching_centos(server_name, ssh_connection, db_con):
                     return 0
     else:
         print('yum alreasy running, exiting...')
-
-
-def patching_redhat(server_name, ssh_connection, db_con):
-    """Function for patch RedHat"""
-    pass
-
-def compare_ports_before_and_after_patching(before, after):
-    before_set=set(before.keys())
-    after_set=set(after.keys())
-    return before_set.symmetric_difference(after_set)
 
 def parse_args():
     """Parse arguments"""
@@ -69,10 +62,6 @@ def get_listened_ports(ssh_connection):
         listened_ports[port_number] = application
     return listened_ports
 
-def compare_listened_ports(ssh_connection):
-    """Compare listened ports after reboot"""
-    pass
-
 def main():
     settings=config_parser()
     servers_for_patching=parse_args().servers.split(',')
@@ -91,8 +80,8 @@ def main():
         try:
             ssh_connection.connect(hostname=current_server.rstrip(), pkey=ssh_private_key, username='root', port=22)
             listening_ports_before_patching=get_listened_ports(ssh_connection)
-            if os_type == 'centos':
-                need_reboot=patching_centos(current_server, ssh_connection, db_cur)
+            if os_type == 'centos' or os_type == 'redhat':
+                need_reboot=patching_rhel_based(current_server, ssh_connection, db_cur, os_type)
                 #1 if ned reboot
                 if need_reboot:
                     ssh_connection.exec_command('shutdown -r 1')
@@ -103,13 +92,12 @@ def main():
                     except:
                         print('Can not connect to server after reboot!!!')
                     listening_ports_after_patching=get_listened_ports(ssh_connection)
-                    diff_in_ports_before_and_after_patching=compare_ports_before_and_after_patching(listening_ports_before_patching, listening_ports_after_patching)
-                    print("difference on ports before\after patching:", diff_in_ports_before_and_after_patching)
-            elif os_type == 'redhat':
-                pass
+                    diff_in_ports_before_and_after_patching=set(listening_ports_before_patching) - set(listening_ports_after_patching)
+                    if diff_in_ports_before_and_after_patching:
+                        print("Perhaps following applications did not start after reboot:")
+                        for current_port in diff_in_ports_before_and_after_patching:
+                            print('aplication: {app}, port: {port}'.format(app=listening_ports_before_patching[current_port], port=current_port))
             ssh_connection.close()
         except 0:
             print("Error during ssh-connection")
-
-
 main()
