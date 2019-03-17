@@ -22,8 +22,8 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
 
 ###################################################################################################################################################################################
-logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots.txt", datefmt="%d/%m%/Y %H:%M:%S", format="%(asctime)s %(message)s")
-#logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots_dev.txt", datefmt="%d/%m%/Y %H:%M:%S", format="%(asctime)s %(message)s")
+logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots.txt", datefmt="%d/%m/%Y %H:%M:%S", format="%(asctime)s %(message)s")
+#logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots_dev.txt", datefmt="%d/%m/%Y %H:%M:%S", format="%(asctime)s %(message)s")
 sign = '<br>--------------------------------------------------------------------------------------------------------------------' \
        '<br><b>This message has been generated automatically!</b>'
 
@@ -47,10 +47,10 @@ def get_settings():
 
 def get_bitcoin_price():
     """return current Bitcoin price. Just for fun"""
-    logging.info("Let's know the current BTC proce...")
+    logging.info("Let's know the current BTC price...")
     proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
     try:
-        r=requests.get("https://blockchain.info/ticker", proxies=proxies)
+        r=requests.get("https://blockchain.info/ticker", proxies=proxies, timeout=30)
         bitcoin_prise = json.loads(r.text)
         return str(int(bitcoin_prise["USD"]["15m"]))+ bitcoin_prise["USD"]["symbol"]
     except Exception as e:
@@ -67,7 +67,7 @@ def get_eth_zec_price():
     logging.info("Getting ETH and ZEC price")
     proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
     try:
-        r=requests.get("https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,ZEC&tsyms=USD", proxies=proxies)
+        r=requests.get("https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,ZEC&tsyms=USD", proxies=proxies, timeout=30)
         eth_zec_json=json.loads(r.text)
         return str(int(eth_zec_json['ETH']['USD'])) + "$", str(int(eth_zec_json['ZEC']['USD'])) + "$"
     except Exception as e:
@@ -86,14 +86,10 @@ def get_nonexist_person():
     headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
     proxies = {"http": settings["http_proxy"], "https": settings["https_proxy"]}
     try:
-        pic_on_ram = requests.get('https://thispersondoesnotexist.com/image', headers=headers, proxies=proxies)
+        pic_on_ram = requests.get('https://thispersondoesnotexist.com/image', headers=headers, proxies=proxies, timeout=30)
     except:
-        logging.warning("Can not get image first time...")
-        try:
-            pic_on_ram = requests.get('https://thispersondoesnotexist.com/image', headers=headers, proxies=proxies)
-        except:
-            logging.warning("Can not get image second time...")
-            return 1
+        logging.warning("Can not get image...")
+        return 1
     logging.info("Opening and resizing image whic was downloaded successfully...")
     img = Image.open(io.BytesIO(pic_on_ram.content))
     resized_img = img.resize(size=(480, 480))
