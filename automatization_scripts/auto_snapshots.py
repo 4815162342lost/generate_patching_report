@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 import datetime
-import csv
 import smtplib
-import glob
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 import sys
 import os
 from distutils.sysconfig import get_python_lib
@@ -14,12 +13,17 @@ import logging
 import dateutil.tz
 import configparser
 import argparse
+import sqlite3
 import time
+import requests
+import io
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(get_python_lib())
 
-logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots.txt", datefmt="%d/%m%Y %H:%M:%S", format="%(asctime)s %(message)s")
+###################################################################################################################################################################################
+logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots.txt", datefmt="%d/%m%/Y %H:%M:%S", format="%(asctime)s %(message)s")
+#logging.basicConfig(level=logging.INFO, filemode="a", filename="/var/log/patching/patching_auto_snapshots_dev.txt", datefmt="%d/%m%/Y %H:%M:%S", format="%(asctime)s %(message)s")
 sign = '<br>--------------------------------------------------------------------------------------------------------------------' \
        '<br><b>This message has been generated automatically!</b>'
 
@@ -29,7 +33,8 @@ logging.info("Starting the script...")
 def get_argparser():
     """Function for return list of servers from args"""
     args=argparse.ArgumentParser()
-    args.add_argument("-s", '--servers', type=str, required=False, help='the list of servers separated by comma')
+    args.add_argument("-s", '--servers', type=str, required=False, help='the list of servers separated by comma which require snapshot')
+    args.add_argument("-a", '--auto_patching', type=str, required=False, help='the list of servers separated by comma which should patch automatically')
     return args.parse_args()
 
 
@@ -40,15 +45,9 @@ def get_settings():
     return parse_conf['auto_snapshots']
 
 
-def get_servers_from_args():
-    pass
-
-
 def get_bitcoin_price():
     """return current Bitcoin price. Just for fun"""
     logging.info("Let's know the current BTC proce...")
-    import requests
-    import json
     proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
     try:
         r=requests.get("https://blockchain.info/ticker", proxies=proxies)
@@ -66,8 +65,6 @@ def get_bitcoin_price():
 def get_eth_zec_price():
     """Return Ethereum and Zcash price. Why not?"""
     logging.info("Getting ETH and ZEC price")
-    import requests
-    import json
     proxies={"http": settings["http_proxy"], "https" : settings["https_proxy"]}
     try:
         r=requests.get("https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,ZEC&tsyms=USD", proxies=proxies)
@@ -82,41 +79,44 @@ def get_eth_zec_price():
         finally:
             return ("unknown error","unknown error")
 
-
-def extract_needed_servers():
-    """Depricated function for read csv files and extract servers which should be patched between now+13 min. and now+28 min. Please, use -L option instead"""
-    servers_for_create_snapshot = {}
-    logging.info("Searching needed servers...")
-    csv_files=glob.glob('./*linux_snapshots*.csv')
-    logging.info("Working with following csv-files: {csv}".format(csv=str(csv_files)))
-    for csv_file_for_open in csv_files:
-        csv_file = open(csv_file_for_open)
-        min_start_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
-        max_start_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
-        patching_schedule_csv = csv.reader(csv_file, delimiter=';')
-        for row in patching_schedule_csv:
-            patching_start_time = datetime.datetime.strptime(row[1], '%d.%m.%Y %H:%M')
-            if patching_start_time > min_start_time and patching_start_time < max_start_time:
-                servers_for_create_snapshot[row[0]] = row[1]
-        csv_file.close()
-    if servers_for_create_snapshot:
-        logging.info("For these servers auto-snapshot will be created: {servers_snapshots}".format(servers_snapshots=servers_for_create_snapshot))
-    else:
-        logging.info("There are no servers which will be patched soon...")
-    return servers_for_create_snapshot
+def get_nonexist_person():
+    """Function for get non-exist person from https://thispersondoesnotexist.com/image site"""
+    logging.info("Trying to get non-exists person from thispersondoesnotexist.com webiste")
+    from PIL import Image
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0"}
+    proxies = {"http": settings["http_proxy"], "https": settings["https_proxy"]}
+    try:
+        pic_on_ram = requests.get('https://thispersondoesnotexist.com/image', headers=headers, proxies=proxies)
+    except:
+        logging.warning("Can not get image first time...")
+        try:
+            pic_on_ram = requests.get('https://thispersondoesnotexist.com/image', headers=headers, proxies=proxies)
+        except:
+            logging.warning("Can not get image second time...")
+            return 1
+    logging.info("Opening and resizing image whic was downloaded successfully...")
+    img = Image.open(io.BytesIO(pic_on_ram.content))
+    resized_img = img.resize(size=(480, 480))
+    file_obj = io.BytesIO()
+    resized_img.save(file_obj, format='jpeg')
+    return file_obj
 
 
 def need_create_snapshot_or_not(servers):
     """Function which check need create snapshot or not from local sqlite3 database"""
-    import sqlite3
     servers_which_require_snapshot=[]
-    sqlite3_database=sqlite3.connect("./patching.db")
+    #################################################################################################################################
+    sqlite3_database = sqlite3.connect("./patching.db")
+#    sqlite3_database=sqlite3.connect("./patching_dev.db")
     sqlite3_database_cursor=sqlite3_database.cursor()
     for current_server in servers:
         try:
             if sqlite3_database_cursor.execute('SELECT NEED_SNAPSHOT FROM SERVERS WHERE SERVER_NAME=:server COLLATE NOCASE', {"server" : current_server}).fetchone()[0] == 1:
                 logging.info("{server} server is require snapshot".format(server=current_server))
                 servers_which_require_snapshot.append(current_server)
+            # else:
+            #     if current_server in servers_with_autopatching:
+            #         output_database_cursor.execute("UPDATE AUTOMATIZATED_RESULTS SET SNAPSHOT_CREATED = 2 WHERE SERVER_NAME=:server_name", {'server_name': current_server})
         except Exception as e:
             logging.warning("Error during get info for {server} from sqlite3 database: {exception_text}".format(server=current_server, exception_text=e))
     return servers_which_require_snapshot
@@ -146,6 +146,8 @@ def create_snaphots(server_name):
         utc_snapshot_date=datetime.datetime.strptime(snapshot_date, '%Y-%m-%d %H:%M:%S')
         utc_snapshot_date=utc_snapshot_date.replace(tzinfo=dateutil.tz.gettz('UTC'))
         cet_snapshot_date=utc_snapshot_date.astimezone(dateutil.tz.gettz('Europe/Paris'))
+        # if server_name in servers_with_autopatching:
+        #     output_database_cursor.execute("UPDATE AUTOMATIZATED_RESULTS SET SNAPSHOT_CREATED = 1 WHERE SERVER_NAME=:server_name",{'server_name': server_name})
         return str(datetime.datetime.strftime(cet_snapshot_date, '%Y-%m-%d %H:%M:%S'))
     except Exception as e:
         logging.critical("Unknown error. Debug info: {debug}; std_out: {std_out}; std_error: {std_err}".format(debug=str(e), std_out=std_out, std_err=std_err))
@@ -156,11 +158,11 @@ def email_sending(results_dic):
     """Function for e-mail sending"""
     logging.info("Prepare and sending e-mail...")
     eth, zec = get_eth_zec_price()
-    mail_body="<html><head></head><body>Hello,<br><br> <b>Current date: </b> {date} CET<br><b>BTC price: </b>{btc}<br> <b>ETH price: </b>{eth}<br> <b>ZEC price: </b>{zec}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price(), eth=eth, zec=zec)
+    mail_body="<html><head></head><body><b>Current date: </b> {date} CET<br><b>BTC price: </b>{btc}<br> <b>ETH price: </b>{eth}<br> <b>ZEC price: </b>{zec}<br><br>".format(date=datetime.datetime.now().strftime("%d-%B-%Y, %H:%M"), btc=get_bitcoin_price(), eth=eth, zec=zec)
     mail_body+="<table border='1'><tr><td>Server name</td><td>Created date</td></tr>"
     for current_result in results_dic.keys():
         mail_body+="<tr><td>{server_name}</td><td>{additional_info}</td></tr>\n".format(server_name=current_result.upper(), additional_info=results_dic[current_result])
-    mail_body+="</table>{sign}</body></html>".format(sign=sign)
+    mail_body+="</table><br><b>Random people which generated by <a href=https://thispersondoesnotexist.com>neuronets:</a></b><br><img src='cid:nonexist_people'>{sign}</body></html>".format(sign=sign)
     subject = '[Snapshots] RFC {rfc_number}: monthly Linux-patching'.format(rfc_number=rfc_number)
     msg = MIMEMultipart('related')
     msg_a = MIMEMultipart('alternative')
@@ -168,6 +170,12 @@ def email_sending(results_dic):
     txt=''
     part1 = MIMEText(txt, 'plain')
     part2 = MIMEText(mail_body, 'html')
+    nonexist_person =  get_nonexist_person()
+    if nonexist_person != 1:
+        nonexist_person.seek(0)
+        part3=MIMEImage(nonexist_person.read(), _subtype="jpg")
+        part3.add_header('Content-ID', '<nonexist_people>')
+        msg.attach(part3)
     msg_a.attach(part1)
     msg_a.attach(part2)
     msg['Subject'] = subject
@@ -181,14 +189,20 @@ def email_sending(results_dic):
     except Exception as e:
         logging.critical("Critical error during sending e-mail. Additional info: {debug}".format(debug=str(e)))
 
-settings=get_settings()
+settings = get_settings()
 rfc_number=open('./rfc_number.txt', 'r').read().rstrip()
 
 logging.info("Parse -s argument...")
 arguments=get_argparser()
+
 if arguments.servers:
+    # output_database=sqlite3.connect("{database_locarion}{rfc_number}.db".format(rfc_number=rfc_number, database_locarion=settings['database_for_write_location']))
+    # output_database_cursor=output_database.cursor()
     logging.info("Argument -s is not empty: {arg}".format(arg=arguments.servers))
     servers=arguments.servers.split(",")
+    # servers_with_autopatching=[]
+    # if arguments.auto_patching:
+    #     servers_with_autopatching=arguments.auto_patching.split(',')
     salt_cloud_result = {}; servers_which_require_snapshots=[]
     servers_which_require_snapshots=need_create_snapshot_or_not(servers)
     if servers_which_require_snapshots:
@@ -198,13 +212,13 @@ if arguments.servers:
     else:
         logging.info("There are no servers which require snapshots")
     logging.info("All done. Exiting...")
+    # output_database.commit()
+    # output_database.close()
+    # if servers_with_autopatching:
+    #     os.system("{script_autopatching}/autopatching.py -s {servers}".format(servers=','.join(servers_with_autopatching), script_autopatching=os.path.dirname(os.path.realpath(__file__))))
+    # time.sleep(2)
+#############################################################################################################################################################
+    #time.sleep(300)
     exit()
 
-needed_servers=extract_needed_servers()
-
-if needed_servers:
-    salt_cloud_result={}
-    for current_server in needed_servers:
-        salt_cloud_result[current_server]=create_snaphots(current_server)
-    email_sending(salt_cloud_result)
 logging.info("All done. Exiting...")
