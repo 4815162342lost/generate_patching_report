@@ -43,7 +43,8 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     format_kernel = format_reboot = format['format_green']
     column_width=[]
     counter = 0
-    csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
+    if args.csv == 'yes':
+        csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
     # avoid the bug #41479 https://github.com/saltstack/salt/issues/41479
     try:
         content_updates_pkgs.pop("retcode")
@@ -52,32 +53,22 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
         pass
     for key, value in sorted(content_updates_pkgs.items()):
         if kernel_update == "no":
-            if str(key).startswith("kernel") == True or str(key).startswith("linux-image") == True:
-                kernel_update = "yes"
-                format_kernel = format['format_red']
-                reboot_require = "yes"
-                format_reboot = format['format_red']
-        sheet.write(counter + 2, 0, key, format['format_border'])
-        try:
-            current_version=content_all_pkgs[key]
-        except KeyError:
-            current_version="new packages (will be installed as dependency)"
-        for coun, content in enumerate((key, current_version, value)):
-            sheet.write(counter+2, coun, content, format['format_border'])
-        csv_writer.writerow((key, current_version, value))
-        counter += 1
-    if kernel_update == "no":
-        for current_package in packages_which_require_reboot:
-            if current_package in content_updates_pkgs.keys():
-                reboot_require = "yes"
-                format_reboot = format['format_red']
-                break
-        if reboot_require == "no":
-            for current_package in content_updates_pkgs.keys():
-                if current_package.find("-firmware-") != -1:
+            if str(key).startswith(("kernel", "linux-image")):
+                kernel_update = reboot_require =  "yes"
+                format_kernel = format_reboot = format['format_red']
+        if reboot_require == 'no':
+            for current_package in packages_which_require_reboot:
+                if current_package == key or key.find("-firmware-") != -1:
                     reboot_require = "yes"
                     format_reboot = format['format_red']
                     break
+        sheet.write(counter + 2, 0, key, format['format_border'])
+        current_version=content_all_pkgs.get(key, "new packages (will be installed as dependency)")
+        for coun, content in enumerate((key, current_version, value)):
+            sheet.write(counter+2, coun, content, format['format_border'])
+        if args.csv == 'yes':
+            csv_writer.writerow((key, current_version, value))
+        counter += 1
     total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
     if counter > 0:
@@ -95,9 +86,8 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
         sheet.set_column(0,0,width=20)
         not_need_patching += 1
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
-    #rhel7 does not support modern python3...
-    #write_csv_total("./rhel_based/total.txt",sheet.get_name().lower(), kernel_update, reboot_require, counter, *column_width)
-    write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
+    if args.csv == 'yes':
+        write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
 
 def main_function():
@@ -192,5 +182,6 @@ xls_file = xlsxwriter.Workbook(xlsx_name)
 format=create_formats(xls_file)
 total_sheet=create_total_sheet(xls_file, format)
 create_xlsx_legend(total_sheet, format)
-csv_total=return_csv_for_total(today.strftime("%b_%Y"))
+if args.csv == 'yes':
+    csv_total=return_csv_for_total(today.strftime("%b_%Y"))
 main_function()
