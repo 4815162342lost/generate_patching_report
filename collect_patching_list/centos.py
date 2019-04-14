@@ -19,11 +19,8 @@ logging.info("Starting the script")
 
 from create_excel_template import *
 from main import *
-
 settings=get_settings()
 args=parcer()
-
-
 servers_for_patching = []
 
 # get_file_name
@@ -41,7 +38,6 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     global error_count
     kernel_update = reboot_require = "no"
     format_kernel = format_reboot = format['format_green']
-    column_width=[]
     counter = 0
     if args.csv == 'yes':
         csv_writer = return_csv_file_for_single_host(sheet.get_name().lower(), today.strftime("%b_%Y"))
@@ -52,16 +48,13 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     except KeyError:
         pass
     for key, value in sorted(content_updates_pkgs.items()):
-        if kernel_update == "no":
-            if str(key).startswith(("kernel", "linux-image")):
-                kernel_update = reboot_require =  "yes"
-                format_kernel = format_reboot = format['format_red']
+        if kernel_update == "no" and str(key).startswith(("kernel", "linux-image")):
+            kernel_update = reboot_require = "yes"
+            format_kernel = format_reboot = format['format_red']
         if reboot_require == 'no':
-            for current_package in packages_which_require_reboot:
-                if current_package == key or key.find("-firmware-") != -1:
-                    reboot_require = "yes"
-                    format_reboot = format['format_red']
-                    break
+            if key in packages_which_require_reboot or key.find("-firmware-") != -1:
+                reboot_require = "yes"
+                format_reboot = format['format_red']
         sheet.write(counter + 2, 0, key, format['format_border'])
         current_version=content_all_pkgs.get(key, "new packages (will be installed as dependency)")
         for coun, content in enumerate((key, current_version, value)):
@@ -72,35 +65,35 @@ def write_to_excel_file(content_updates_pkgs, content_all_pkgs, idx, sheet):
     total_sheet.write(idx + 2, 3, kernel_update, format_kernel)
     total_sheet.write(idx + 2, 4, reboot_require, format_reboot)
     if counter > 0:
-        column_width.append(max(len(key) for key in content_updates_pkgs.keys()))
-        max_t = max(len(str(value)) for value in content_updates_pkgs.values())
-        for i in range(1,3):
-            column_width.append(max_t)
-        need_patching += 1;
-        for c in range(3):
-            sheet.set_column(c, c, width=column_width[c] + 2)
+        # set width for columns with patch name
+        patch_name_width = max(len(key) for key in content_updates_pkgs.keys()) + 2
+        sheet.set_column(0, 0, width=patch_name_width)
+        # set width for columns which refer to version
+        patch_versions_width = max(len(str(value)) for value in content_updates_pkgs.values())
+        sheet.set_column(1, 2, width=patch_versions_width)
+        need_patching += 1
         servers_for_patching.append(sheet.get_name())
+        column_width= (patch_name_width, patch_versions_width, patch_versions_width)
     else:
-        for i in range(3):
-            column_width.append(0)
         sheet.set_column(0,0,width=20)
         not_need_patching += 1
+        column_width = (20, 20, 20)
     write_to_total_sheet(counter, "", sheet, total_sheet, format, idx, 'centos')
     if args.csv == 'yes':
         write_csv_total(csv_total, sheet.get_name().lower(), kernel_update, reboot_require, counter, column_width)
 
 
 def main_function():
-    global error_count; global  servers_for_patching
-    file= open('./server_list.txt', 'r')
-    server_list = open('./server_list.txt', 'r').read().rstrip().split('\n')
-    file.close()
+    """Main function"""
+    with open('./server_list.txt', 'r') as server_list_file:
+        server_list = server_list_file.read().splitlines()
     if args.nocheck=="yes":
         logging.info("Create csv-files only...")
-        servers_for_patching=server_list
-        perform_additional_actions(args, today, 'centos', xlsx_name, settings, servers_for_patching)
+        perform_additional_actions(args, today, 'centos', xlsx_name, settings, server_list)
         xls_file.close()
         exit()
+    
+    global error_count; global  servers_for_patching
     logging.info("Server list: {servers}".format(servers=str(server_list)))
     print("Starting to collect patching list for servers: " + ','.join(server_list))
     try:
@@ -122,9 +115,8 @@ def main_function():
         proc_get_all_pkgs.kill()
         logging.critical("Timeout of the salt process...")
         print("There are problem with salt! ")
-        os._exit(1)
-
-
+        xls_file.close()
+        exit()
     # avoid the bug #40311 https://github.com/saltstack/salt/issues/40311
     logging.info("Remove trash from stdout")
     try:
@@ -143,6 +135,7 @@ def main_function():
     except Exception as e:
         logging.critical("Critical error during creating json. Exception: {deb}".format(deb=str(e)))
         logging.critical("Critical error during creating json. Stdout_get_updates: {deb}".format(deb=str(stdout_get_updates)))
+        xls_file.close()
         exit()
     print('Starting to create xlsx-file...')
     error_list_from_xlsx = []
