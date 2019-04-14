@@ -1,7 +1,7 @@
 def create_formats(xls_file):
     # create xslsx-file's template
-    format_colors=('format_red', 'format_green', 'format_purple', 'format_yellow', 'format_gray',
-                   'format_blue', 'format_bold', 'format_border', 'format_kernel', 'format_reboot', 'format_green_url', 'format_red_url', 'format_purple_url')
+    format_colors=('format_red', 'format_green', 'format_purple',
+                   'format_bold', 'format_border', 'format_kernel', 'format_reboot', 'format_green_url', 'format_red_url', 'format_purple_url')
 
     format={}
     for current_format in format_colors:
@@ -11,9 +11,6 @@ def create_formats(xls_file):
     format['format_red'].set_bg_color("#ffa7a7")
     format['format_green'].set_bg_color("#96d67c")
     format['format_purple'].set_bg_color("#d195ec")
-    format['format_yellow'].set_bg_color("#fff620")
-    format['format_gray'].set_bg_color("#a3a3a3")
-    format['format_blue'].set_bg_color("#87cad8")
     format['format_bold'].set_bold()
     format['format_green_url'].set_bg_color("#96d67c")
     format['format_red_url'].set_bg_color("#ffa7a7")
@@ -31,11 +28,11 @@ def create_total_sheet(xls_file, format):
     total_sheet.write(0, 0, "Summary results:", format['format_bold'])
 
     # select width for columns
-    column_width = (20, 45, 49, 14, 16)
-    for idx in range(0, 5):
+    column_width = (20, 50, 14, 16)
+    for idx in range(4):
         total_sheet.set_column(idx, idx, width=column_width[idx])
 
-    comments_for_total_sheet=("Server name", "Conclusion", "Cycle results(fully patches or state the issue occurred)", "Kernel update",
+    comments_for_total_sheet=("Server name", "Cycle results(fully patches or state the issue occurred)", "Kernel update",
                               "Reboot required")
 
     for idx, current_comment in enumerate(comments_for_total_sheet):
@@ -43,55 +40,35 @@ def create_total_sheet(xls_file, format):
     return total_sheet
 
 
-
 def create_xlsx_legend(total_sheet, format):
     """Add legend to total sheet"""
-    total_sheet.write(0, 6, "Conventions and stats:", format['format_bold'])
-    total_sheet.set_column(6, 6, width=30)
-    total_sheet.set_column(7, 7, width=12)
-    total_sheet.write(2, 6, "Patching is not required", format['format_green'])
-    total_sheet.write(3, 6, "Server needs patching", format['format_red'])
-    total_sheet.write(4, 6, "There are problem with the server", format['format_purple'])
-    total_sheet.write(5, 6, "Updates installed successfully", format['format_yellow'])
-    total_sheet.write(6, 6, "Updates failed", format['format_gray'])
-    total_sheet.write(7, 6, "Excluded from patching", format['format_blue'])
-    total_sheet.write(1, 6, "Server count", format['format_bold'])
+    total_sheet.write(0, 5, "Conventions and stats:", format['format_bold'])
+    total_sheet.set_column(5, 5, width=30)
+    total_sheet.set_column(6, 6, width=12)
+    total_sheet.write(2, 5, "Patching is not required", format['format_green'])
+    total_sheet.write(3, 5, "Server needs patching", format['format_red'])
+    total_sheet.write(4, 5, "There are problem with the server", format['format_purple'])
+    total_sheet.write(1, 5, "Server count", format['format_bold'])
 
 
 def add_chart(need_patching, not_need_patching, error_count, xls_file, total_sheet, format):
     """Add chart"""
     chart_before_patching = xls_file.add_chart({'type': 'pie'})
-    total_sheet.write(3, 7, need_patching, format['format_border'])
-    total_sheet.write(2, 7, not_need_patching, format['format_border'])
-    total_sheet.write(4, 7, error_count, format['format_border'])
-    total_sheet.write(5, 7, "n/a", format['format_border'])
-    total_sheet.write_formula(6, 7, "=SUM(H3:H5)-(H6+H8)", format['format_border'])
-    total_sheet.write(7, 7, "n/a", format['format_border'])
-
-    chart_before_patching.set_title({"name": "The raw statistic (before patching)"})
+    total_sheet.write_formula(1, 6, '=SUM(G3:G5)', format['format_border'])
+    total_sheet.write(3, 6, need_patching, format['format_border'])
+    total_sheet.write(2, 6, not_need_patching, format['format_border'])
+    total_sheet.write(4, 6, error_count, format['format_border'])
+    chart_before_patching.set_title({"name": "Stats"})
     chart_before_patching.add_series({
-        'categories': '=Total!$G$3:$G$5',
-        'values': '=Total!$H$3:$H$5',
+        'categories': '=Total!$F$3:$F$5',
+        'values': '=Total!$G$3:$G$5',
         'points': [
             {'fill': {'color': '#79eca3'}},
             {'fill': {'color': '#FF7373'}},
             {'fill': {'color': '#cb87fb'}},
         ],
     })
-    total_sheet.insert_chart('G10', chart_before_patching)
-
-    chart_after_patching = xls_file.add_chart({"type": "pie"})
-    chart_after_patching.set_title({"name": "Patching results"})
-    chart_after_patching.add_series({
-        'categories': '=Total!$G$6:$G$8',
-        'values': '=Total!$H$6:$H$8',
-        'points': [
-            {'fill': {'color': "#fff620"}},
-            {'fill': {'color': "#a3a3a3"}},
-            {'fill': {'color': "#87cad8"}},
-        ],
-    })
-    total_sheet.insert_chart('G28', chart_after_patching)
+    total_sheet.insert_chart('F10', chart_before_patching)
 
 def write_to_total_sheet(content, patching_type, sheet, total_sheet, format, idx_glob, os):
     '''content -- patching count or error type'''
